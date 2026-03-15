@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Upload Product — DropShip Admin</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0a0a0f; --surface: #13131a; --surface2: #1a1a24;
+      --border: #1e1e2e; --accent: #ff6b35; --accent2: #ff9a5c;
+      --success: #3ddc84; --text: #e8e8f0; --muted: #6b6b80; --sidebar: 240px;
+    }
+    body { background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;display:flex; }
+    .sidebar{width:var(--sidebar);background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:32px 0;position:fixed;top:0;left:0;bottom:0;}
+    .sidebar-logo{font-family:'Syne',sans-serif;font-weight:800;font-size:1.4rem;color:var(--text);padding:0 24px 32px;border-bottom:1px solid var(--border);letter-spacing:-.02em;}
+    .sidebar-logo span{color:var(--accent);}
+    nav{padding:24px 12px;flex:1;}
+    .nav-label{font-size:.7rem;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);padding:0 12px;margin-bottom:8px;margin-top:20px;}
+    .nav-link{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;color:var(--muted);text-decoration:none;font-size:.9rem;transition:all .2s;}
+    .nav-link:hover,.nav-link.active{background:rgba(255,107,53,.1);color:var(--accent);}
+    .sidebar-footer{padding:16px 24px;border-top:1px solid var(--border);}
+    .user-badge{display:flex;align-items:center;gap:10px;}
+    .avatar{width:34px;height:34px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:700;font-size:.8rem;color:#fff;flex-shrink:0;}
+    .user-info .name{font-size:.85rem;font-weight:500;}.user-info .role{font-size:.75rem;color:var(--accent);}
+    .logout-btn{display:block;margin-top:12px;padding:8px 12px;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--muted);text-decoration:none;font-size:.8rem;text-align:center;transition:all .2s;}
+    .logout-btn:hover{border-color:var(--accent);color:var(--accent);}
+    .main{margin-left:var(--sidebar);flex:1;padding:40px;}
+    .page-header{margin-bottom:36px;}
+    .page-header h1{font-family:'Syne',sans-serif;font-weight:800;font-size:2rem;letter-spacing:-.03em;margin-bottom:4px;}
+    .page-header p{color:var(--muted);}
+    .messages{margin-bottom:24px;}
+    .msg{padding:14px 18px;border-radius:10px;font-size:.9rem;margin-bottom:8px;}
+    .msg.success{background:rgba(61,220,132,.1);border:1px solid rgba(61,220,132,.3);color:var(--success);}
+    .msg.error{background:rgba(255,80,80,.1);border:1px solid rgba(255,80,80,.3);color:#ff7070;}
+    .content-grid{display:grid;grid-template-columns:1fr 360px;gap:28px;align-items:start;}
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:32px;}
+    .card-title{font-family:'Syne',sans-serif;font-weight:700;font-size:1.1rem;margin-bottom:28px;padding-bottom:16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+    .card-title .dot{width:8px;height:8px;background:var(--accent);border-radius:50%;}
+    .form-row{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+    .form-group{margin-bottom:22px;}
+    .form-group label{display:block;font-size:.78rem;font-weight:500;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px;}
+    .form-input{width:100%;padding:13px 15px;background:var(--bg);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.92rem;transition:border-color .2s,box-shadow .2s;}
+    textarea.form-input{resize:vertical;min-height:100px;}
+    .form-input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(255,107,53,.1);}
+    .image-upload-area{border:2px dashed var(--border);border-radius:12px;padding:40px 20px;text-align:center;cursor:pointer;transition:all .2s;position:relative;background:var(--bg);}
+    .image-upload-area:hover{border-color:var(--accent);background:rgba(255,107,53,.04);}
+    .image-upload-area input[type="file"]{position:absolute;inset:0;opacity:0;cursor:pointer;}
+    .upload-icon{font-size:2.5rem;margin-bottom:8px;}
+    .upload-text{font-size:.9rem;color:var(--muted);}
+    .upload-text strong{color:var(--accent);}
+    .toggle-group{display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--bg);border:1px solid var(--border);border-radius:10px;}
+    .toggle-group input[type="checkbox"]{display:none;}
+    .toggle{width:42px;height:24px;background:var(--border);border-radius:12px;position:relative;cursor:pointer;transition:background .2s;flex-shrink:0;}
+    .toggle::after{content:'';position:absolute;width:18px;height:18px;background:#fff;border-radius:50%;top:3px;left:3px;transition:transform .2s;}
+    input[type="checkbox"]:checked + .toggle{background:var(--accent);}
+    input[type="checkbox"]:checked + .toggle::after{transform:translateX(18px);}
+    .toggle-label{font-size:.9rem;}
+    .submit-btn{width:100%;padding:16px;background:var(--accent);color:#fff;font-family:'Syne',sans-serif;font-weight:700;font-size:1rem;letter-spacing:.02em;border:none;border-radius:10px;cursor:pointer;transition:background .2s,transform .15s;margin-top:8px;}
+    .submit-btn:hover{background:var(--accent2);transform:translateY(-1px);}
+    .recent-product{display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--border);}
+    .recent-product:last-child{border-bottom:none;}
+    .product-thumb{width:44px;height:44px;background:var(--surface2);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;overflow:hidden;}
+    .product-thumb img{width:100%;height:100%;object-fit:cover;}
+    .product-meta .prod-name{font-size:.9rem;font-weight:500;margin-bottom:2px;}
+    .product-meta .prod-info{font-size:.78rem;color:var(--muted);}
+    .product-price{margin-left:auto;font-family:'Syne',sans-serif;font-weight:700;font-size:.95rem;color:var(--accent);}
+    .badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.7rem;font-weight:500;}
+    .badge.active{background:rgba(61,220,132,.1);color:var(--success);}
+    .badge.inactive{background:rgba(255,80,80,.1);color:#ff7070;}
+    .empty-state{text-align:center;padding:32px;color:var(--muted);font-size:.9rem;}
+  </style>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="sidebar-logo">Drop<span>Ship</span></div>
+    <nav>
+      <div class="nav-label">Products</div>
+      <a href="{% url 'product_upload' %}" class="nav-link active"><span class="icon">📦</span> Upload Product</a>
+      <a href="{% url 'product_list' %}" class="nav-link"><span class="icon">🗂️</span> All Products</a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-badge">
+        <div class="avatar">{{ admin_user.username|slice:":1"|upper }}</div>
+        <div class="user-info">
+          <div class="name">{{ admin_user.username }}</div>
+          <div class="role">Administrator</div>
+        </div>
+      </div>
+      <a href="{% url 'admin_logout' %}" class="logout-btn">Sign Out</a>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="page-header">
+      <h1>Upload Product</h1>
+      <p>Add a new product to your dropship catalog</p>
+    </div>
+
+    {% if messages %}
+    <div class="messages">
+      {% for message in messages %}
+        <div class="msg {{ message.tags }}">{{ message }}</div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="content-grid">
+      <div class="card">
+        <div class="card-title"><div class="dot"></div>Product Details</div>
+        <form method="post" enctype="multipart/form-data">
+          {% csrf_token %}
+          <div class="form-row">
+            <div class="form-group">
+              <label for="id_name">Product Name</label>
+              {{ form.name }}
+            </div>
+            <div class="form-group">
+              <label for="id_category">Category</label>
+              {{ form.category }}
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="id_description">Description</label>
+            {{ form.description }}
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="id_price">Price ($)</label>
+              {{ form.price }}
+            </div>
+            <div class="form-group">
+              <label for="id_stock_quantity">Stock Quantity</label>
+              {{ form.stock_quantity }}
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Product Image</label>
+            <div class="image-upload-area" id="uploadArea">
+              {{ form.image }}
+              <div class="upload-icon">🖼️</div>
+              <div class="upload-text"><strong>Click to upload</strong> or drag & drop<br>PNG, JPG, WEBP up to 10MB</div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Listing Status</label>
+            <div class="toggle-group">
+              {{ form.is_active }}
+              <label class="toggle" for="id_is_active"></label>
+              <span class="toggle-label">List product as active on storefront</span>
+            </div>
+          </div>
+          <button type="submit" class="submit-btn">📤 Upload Product</button>
+        </form>
+      </div>
+
+      <!-- RECENT PRODUCTS — fixed field names -->
+      <div>
+        <div class="card">
+          <div class="card-title"><div class="dot"></div>Recently Added</div>
+          {% if recent_products %}
+            {% for product in recent_products %}
+            <div class="recent-product">
+              <div class="product-thumb">
+                {% if product.main_image %}
+                  <img src="/media/{{ product.main_image }}" alt="{{ product.name }}"/>
+                {% else %}
+                  📦
+                {% endif %}
+              </div>
+              <div class="product-meta">
+                <div class="prod-name">{{ product.name }}</div>
+                <div class="prod-info">
+                  {{ product.category_name }} &bull; Stock: {{ product.stock }}
+                  <br>
+                  <span class="badge {% if product.is_available %}active{% else %}inactive{% endif %}">
+                    {% if product.is_available %}Active{% else %}Inactive{% endif %}
+                  </span>
+                </div>
+              </div>
+              <div class="product-price">${{ product.price }}</div>
+            </div>
+            {% endfor %}
+          {% else %}
+            <div class="empty-state">No products yet.<br>Upload your first one! 👆</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const uploadArea = document.getElementById('uploadArea');
+    const fileInput  = document.querySelector('input[type="file"]');
+    fileInput && fileInput.addEventListener('change', function() {
+      if (this.files[0]) {
+        uploadArea.querySelector('.upload-text').innerHTML =
+          `<strong>${this.files[0].name}</strong><br>${(this.files[0].size/1024).toFixed(0)} KB`;
+      }
+    });
+  </script>
+</body>
+</html>

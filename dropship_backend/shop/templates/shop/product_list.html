@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>All Products — DropShip Admin</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root{--bg:#0a0a0f;--surface:#13131a;--border:#1e1e2e;--accent:#ff6b35;--success:#3ddc84;--text:#e8e8f0;--muted:#6b6b80;--sidebar:240px;}
+    body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;display:flex;}
+    .sidebar{width:var(--sidebar);background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:32px 0;position:fixed;top:0;left:0;bottom:0;}
+    .sidebar-logo{font-family:'Syne',sans-serif;font-weight:800;font-size:1.4rem;color:var(--text);padding:0 24px 32px;border-bottom:1px solid var(--border);}
+    .sidebar-logo span{color:var(--accent);}
+    nav{padding:24px 12px;flex:1;}
+    .nav-label{font-size:.7rem;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);padding:0 12px;margin-bottom:8px;margin-top:20px;}
+    .nav-link{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;color:var(--muted);text-decoration:none;font-size:.9rem;transition:all .2s;}
+    .nav-link:hover,.nav-link.active{background:rgba(255,107,53,.1);color:var(--accent);}
+    .sidebar-footer{padding:16px 24px;border-top:1px solid var(--border);}
+    .avatar{width:34px;height:34px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:700;font-size:.8rem;color:#fff;}
+    .user-badge{display:flex;align-items:center;gap:10px;}
+    .user-info .name{font-size:.85rem;font-weight:500;}.user-info .role{font-size:.75rem;color:var(--accent);}
+    .logout-btn{display:block;margin-top:12px;padding:8px 12px;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--muted);text-decoration:none;font-size:.8rem;text-align:center;transition:all .2s;}
+    .logout-btn:hover{border-color:var(--accent);color:var(--accent);}
+    .main{margin-left:var(--sidebar);flex:1;padding:40px;}
+    .page-header{margin-bottom:36px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;}
+    .page-header h1{font-family:'Syne',sans-serif;font-weight:800;font-size:2rem;letter-spacing:-.03em;margin-bottom:4px;}
+    .page-header p{color:var(--muted);}
+    .upload-link{display:inline-flex;align-items:center;gap:8px;padding:10px 20px;background:var(--accent);color:#fff;font-family:'Syne',sans-serif;font-weight:700;text-decoration:none;border-radius:10px;font-size:.9rem;transition:background .2s;}
+    .upload-link:hover{background:#ff9a5c;}
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;}
+    table{width:100%;border-collapse:collapse;}
+    th{text-align:left;padding:14px 20px;font-size:.75rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);border-bottom:1px solid var(--border);}
+    td{padding:14px 20px;border-bottom:1px solid var(--border);font-size:.9rem;vertical-align:middle;}
+    tr:last-child td{border-bottom:none;}
+    tr:hover td{background:rgba(255,255,255,.02);}
+    .badge{display:inline-block;padding:3px 10px;border-radius:4px;font-size:.75rem;font-weight:500;}
+    .badge.active{background:rgba(61,220,132,.1);color:var(--success);}
+    .badge.inactive{background:rgba(255,80,80,.1);color:#ff7070;}
+    .price{font-family:'Syne',sans-serif;font-weight:700;color:var(--accent);}
+    .thumb{width:40px;height:40px;background:#1a1a24;border-radius:6px;object-fit:cover;}
+    .empty{text-align:center;padding:60px;color:var(--muted);}
+
+    /* Delete button */
+    .delete-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      background: transparent;
+      border: 1px solid rgba(255,80,80,.3);
+      border-radius: 6px;
+      color: #ff7070;
+      font-size: .8rem;
+      cursor: pointer;
+      transition: all .2s;
+    }
+    .delete-btn:hover { background: rgba(255,80,80,.1); border-color: #ff7070; }
+
+    /* Confirm modal */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.7);
+      z-index: 999;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-overlay.visible { display: flex; }
+    .modal {
+      background: #13131a;
+      border: 1px solid #1e1e2e;
+      border-radius: 16px;
+      padding: 32px;
+      max-width: 400px;
+      width: 90%;
+      text-align: center;
+    }
+    .modal h3 { font-family: 'Syne', sans-serif; font-size: 1.2rem; margin-bottom: 10px; }
+    .modal p  { color: #6b6b80; font-size: .9rem; margin-bottom: 24px; }
+    .modal-actions { display: flex; gap: 12px; justify-content: center; }
+    .btn-cancel {
+      padding: 10px 24px; background: transparent;
+      border: 1px solid #1e1e2e; border-radius: 8px;
+      color: #6b6b80; cursor: pointer; font-size: .9rem; transition: all .2s;
+    }
+    .btn-cancel:hover { border-color: #6b6b80; color: #e8e8f0; }
+    .btn-confirm-delete {
+      padding: 10px 24px; background: #c53030;
+      border: none; border-radius: 8px;
+      color: #fff; cursor: pointer; font-size: .9rem;
+      font-weight: 600; transition: background .2s;
+    }
+    .btn-confirm-delete:hover { background: #e53e3e; }
+
+    .toast {
+      position: fixed; bottom: 24px; right: 24px;
+      padding: 14px 20px; border-radius: 10px;
+      font-size: .9rem; font-weight: 500;
+      z-index: 9999; display: none;
+      animation: slideIn .3s ease;
+    }
+    .toast.success { background: rgba(61,220,132,.15); border: 1px solid rgba(61,220,132,.4); color: #3ddc84; }
+    .toast.error   { background: rgba(255,80,80,.15);  border: 1px solid rgba(255,80,80,.4);  color: #ff7070; }
+    @keyframes slideIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  </style>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="sidebar-logo">Drop<span>Ship</span></div>
+    <nav>
+      <div class="nav-label">Products</div>
+      <a href="{% url 'product_upload' %}" class="nav-link">📦 Upload Product</a>
+      <a href="{% url 'product_list' %}" class="nav-link active">🗂️ All Products</a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-badge">
+        <div class="avatar">A</div>
+        <div class="user-info"><div class="name">Admin</div><div class="role">Administrator</div></div>
+      </div>
+      <a href="{% url 'admin_logout' %}" class="logout-btn">Sign Out</a>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="page-header">
+      <div>
+        <h1>All Products</h1>
+        <p>{{ products|length }} product{{ products|length|pluralize }} in your catalog</p>
+      </div>
+      <a href="{% url 'product_upload' %}" class="upload-link">+ Upload New</a>
+    </div>
+
+    <div class="card">
+      {% if products %}
+      <table>
+        <thead>
+          <tr>
+            <th>Image</th>
+            <th>Name</th>
+            <th>Category</th>
+            <th>Price</th>
+            <th>Stock</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="productTableBody">
+          {% for product in products %}
+          <tr id="row-{{ product.product_id }}">
+            <td>
+              {% if product.main_image %}
+                <img src="/media/{{ product.main_image }}" class="thumb" alt="{{ product.name }}"/>
+              {% else %}
+                <div style="width:40px;height:40px;background:#1a1a24;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">📦</div>
+              {% endif %}
+            </td>
+            <td>{{ product.name }}</td>
+            <td style="color:var(--muted);">{{ product.category_name }}</td>
+            <td class="price">${{ product.price }}</td>
+            <td>{{ product.stock }}</td>
+            <td>
+              <span class="badge {% if product.is_available %}active{% else %}inactive{% endif %}">
+                {% if product.is_available %}Active{% else %}Inactive{% endif %}
+              </span>
+            </td>
+            <td>
+              <button class="delete-btn"
+                onclick="confirmDelete('{{ product.product_id }}', '{{ product.name }}')">
+                🗑 Delete
+              </button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+        <div class="empty">No products found. <a href="{% url 'product_upload' %}" style="color:var(--accent);">Upload your first product →</a></div>
+      {% endif %}
+    </div>
+  </main>
+
+  <!-- Confirm Delete Modal -->
+  <div class="modal-overlay" id="deleteModal">
+    <div class="modal">
+      <h3>Delete Product?</h3>
+      <p id="deleteModalText">This action cannot be undone.</p>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+        <button class="btn-confirm-delete" id="confirmDeleteBtn">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script src="/static/js/api.js"></script>
+  <script>
+    let pendingDeleteId = null;
+
+    function confirmDelete(productId, productName) {
+      pendingDeleteId = productId;
+      document.getElementById('deleteModalText').textContent =
+        `Are you sure you want to delete "${productName}"? This cannot be undone.`;
+      document.getElementById('deleteModal').classList.add('visible');
+    }
+
+    function closeModal() {
+      pendingDeleteId = null;
+      document.getElementById('deleteModal').classList.remove('visible');
+    }
+
+    document.getElementById('confirmDeleteBtn').addEventListener('click', async () => {
+      if (!pendingDeleteId) return;
+      const btn = document.getElementById('confirmDeleteBtn');
+      btn.textContent = 'Deleting...';
+      btn.disabled = true;
+
+      try {
+        await Products.delete(pendingDeleteId);
+        // Remove row from table
+        const row = document.getElementById(`row-${pendingDeleteId}`);
+        if (row) row.remove();
+        showToast('Product deleted successfully', 'success');
+        closeModal();
+      } catch (err) {
+        showToast(err.message || 'Failed to delete product', 'error');
+      } finally {
+        btn.textContent = 'Delete';
+        btn.disabled = false;
+      }
+    });
+
+    function showToast(message, type = 'success') {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.className = `toast ${type}`;
+      toast.style.display = 'block';
+      setTimeout(() => { toast.style.display = 'none'; }, 3000);
+    }
+
+    // Close modal on overlay click
+    document.getElementById('deleteModal').addEventListener('click', function(e) {
+      if (e.target === this) closeModal();
+    });
+  </script>
+</body>
+</html>

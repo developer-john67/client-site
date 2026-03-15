@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Products - Dropship</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .products-page { padding: 32px 0; }
+
+        /* ── Breadcrumb ── */
+        .breadcrumb {
+            font-size: 13px;
+            color: #888;
+            margin-bottom: 20px;
+        }
+        .breadcrumb a { color: #3b82f6; text-decoration: none; }
+        .breadcrumb a:hover { text-decoration: underline; }
+        .breadcrumb span { margin: 0 6px; }
+
+        /* ── Page Header ── */
+        .page-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 28px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .page-header h1 {
+            font-size: 26px;
+            font-weight: 700;
+            color: #111;
+            margin: 0;
+        }
+        .product-count {
+            font-size: 14px;
+            color: #666;
+        }
+
+        /* ── Layout ── */
+        .products-layout {
+            display: grid;
+            grid-template-columns: 240px 1fr;
+            gap: 28px;
+            align-items: start;
+        }
+        @media (max-width: 768px) {
+            .products-layout { grid-template-columns: 1fr; }
+            .filters-sidebar { display: none; }
+        }
+
+        /* ── Filters Sidebar ── */
+        .filters-sidebar {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 20px;
+            position: sticky;
+            top: 80px;
+        }
+        .filter-section { margin-bottom: 24px; }
+        .filter-section h3 {
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #555;
+            margin: 0 0 12px;
+        }
+        .category-filter-list { list-style: none; padding: 0; margin: 0; }
+        .category-filter-list li a {
+            display: block;
+            padding: 6px 8px;
+            border-radius: 6px;
+            font-size: 14px;
+            color: #444;
+            text-decoration: none;
+            transition: background 0.15s;
+        }
+        .category-filter-list li a:hover { background: #f3f4f6; }
+        .category-filter-list li a.active {
+            background: #dbeafe;
+            color: #1d4ed8;
+            font-weight: 600;
+        }
+        .price-inputs {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .price-inputs input {
+            width: 80px;
+            padding: 6px 8px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 13px;
+            outline: none;
+        }
+        .price-inputs input:focus { border-color: #3b82f6; }
+        .btn-apply-price {
+            padding: 6px 12px;
+            background: #3b82f6;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .btn-apply-price:hover { background: #2563eb; }
+
+        /* ── Sort Bar ── */
+        .sort-bar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .sort-bar label { font-size: 14px; color: #555; }
+        .sort-bar select {
+            padding: 6px 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        /* ── Product Grid ── */
+        .product-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+        }
+        .product-card {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            overflow: hidden;
+            transition: box-shadow 0.2s, transform 0.2s;
+        }
+        .product-card:hover {
+            box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+        }
+        .product-image {
+            width: 100%;
+            height: 180px;
+            object-fit: cover;
+            background: #f9fafb;
+        }
+        .product-info { padding: 14px; }
+        .product-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #111;
+            margin: 0 0 6px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .product-category {
+            font-size: 12px;
+            color: #888;
+            margin: 0 0 8px;
+        }
+        .product-price {
+            font-size: 16px;
+            font-weight: 700;
+            color: #111;
+            margin: 0 0 12px;
+        }
+        .add-to-cart {
+            width: 100%;
+            padding: 8px;
+            background: #3b82f6;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .add-to-cart:hover { background: #2563eb; }
+
+        /* ── States ── */
+        .loading-state, .empty-state, .error-state {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 60px 20px;
+            color: #888;
+        }
+        .loading-state i, .empty-state i { font-size: 40px; margin-bottom: 12px; display: block; }
+        .empty-state a { color: #3b82f6; text-decoration: none; }
+    </style>
+</head>
+<body>
+
+    <!-- ── Navbar ── -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">
+                <img src="../images/logo.svg" alt="Dropship Logo">
+                <span>Dropship</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="index.html">Home</a></li>
+                <li class="dropdown">
+                    <a href="#">Categories <i class="fas fa-chevron-down"></i></a>
+                    <ul class="dropdown-menu">
+                        <li><a href="products.html?category=electronics"><i class="fas fa-laptop"></i> Electronics</a></li>
+                        <li><a href="products.html?category=sports-outdoor"><i class="fas fa-football-ball"></i> Sports &amp; Outdoor</a></li>
+                        <li><a href="products.html?category=home-garden"><i class="fas fa-home"></i> Home &amp; Garden</a></li>
+                        <li><a href="products.html?category=clothing-apparel"><i class="fas fa-tshirt"></i> Clothing &amp; Apparel</a></li>
+                        <li><a href="products.html?category=games-toys"><i class="fas fa-gamepad"></i> Games &amp; Toys</a></li>
+                        <li><a href="products.html?category=beauty-health"><i class="fas fa-spa"></i> Beauty &amp; Health</a></li>
+                        <li><a href="products.html?category=automotive"><i class="fas fa-car"></i> Automotive</a></li>
+                        <li><a href="products.html?category=books-media"><i class="fas fa-book"></i> Books &amp; Media</a></li>
+                        <li><a href="products.html?category=food-groceries"><i class="fas fa-shopping-basket"></i> Food &amp; Groceries</a></li>
+                        <li><a href="products.html?category=other"><i class="fas fa-ellipsis-h"></i> Other</a></li>
+                    </ul>
+                </li>
+                <li><a href="help.html">Help</a></li>
+                <li><a href="account.html">Account</a></li>
+            </ul>
+            <div class="nav-actions">
+                <a href="signup.html" class="btn-signup">Sign Up</a>
+                <a href="login.html" class="btn-login">Login</a>
+                <a href="cart.html" class="cart-icon">
+                    <i class="fas fa-shopping-cart"></i>
+                    <span class="cart-count">0</span>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="products-page">
+        <div class="container">
+
+            <!-- Breadcrumb -->
+            <div class="breadcrumb">
+                <a href="index.html">Home</a>
+                <span>›</span>
+                <span id="breadcrumbCategory">Products</span>
+            </div>
+
+            <!-- Page Header -->
+            <div class="page-header">
+                <h1 id="pageTitle">All Products</h1>
+                <span class="product-count" id="productCount"></span>
+            </div>
+
+            <div class="products-layout">
+
+                <!-- ── Filters Sidebar ── -->
+                <aside class="filters-sidebar">
+                    <div class="filter-section">
+                        <h3>Categories</h3>
+                        <ul class="category-filter-list">
+                            <li><a href="products.html">All Products</a></li>
+                            <li><a href="products.html?category=electronics">Electronics</a></li>
+                            <li><a href="products.html?category=sports-outdoor">Sports &amp; Outdoor</a></li>
+                            <li><a href="products.html?category=home-garden">Home &amp; Garden</a></li>
+                            <li><a href="products.html?category=clothing-apparel">Clothing &amp; Apparel</a></li>
+                            <li><a href="products.html?category=games-toys">Games &amp; Toys</a></li>
+                            <li><a href="products.html?category=beauty-health">Beauty &amp; Health</a></li>
+                            <li><a href="products.html?category=automotive">Automotive</a></li>
+                            <li><a href="products.html?category=books-media">Books &amp; Media</a></li>
+                            <li><a href="products.html?category=food-groceries">Food &amp; Groceries</a></li>
+                            <li><a href="products.html?category=other">Other</a></li>
+                        </ul>
+                    </div>
+
+                    <div class="filter-section">
+                        <h3>Price Range</h3>
+                        <div class="price-inputs">
+                            <input type="number" id="minPrice" placeholder="Min" min="0">
+                            <span>–</span>
+                            <input type="number" id="maxPrice" placeholder="Max" min="0">
+                        </div>
+                        <br>
+                        <button class="btn-apply-price" onclick="applyPriceFilter()">Apply</button>
+                    </div>
+                </aside>
+
+                <!-- ── Products Area ── -->
+                <div>
+                    <!-- Sort Bar -->
+                    <div class="sort-bar">
+                        <label for="sortSelect">Sort by:</label>
+                        <select id="sortSelect" onchange="sortProducts()">
+                            <option value="default">Default</option>
+                            <option value="price-asc">Price: Low to High</option>
+                            <option value="price-desc">Price: High to Low</option>
+                            <option value="name-asc">Name: A–Z</option>
+                            <option value="name-desc">Name: Z–A</option>
+                        </select>
+                    </div>
+
+                    <!-- Product Grid -->
+                    <div class="product-grid" id="productGrid">
+                        <div class="loading-state">
+                            <i class="fas fa-spinner fa-spin"></i>
+                            <p>Loading products...</p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="footer-content">
+            <div class="footer-section">
+                <h3>About Dropship</h3>
+                <p>Your trusted online shopping partner</p>
+            </div>
+            <div class="footer-section">
+                <h3>Quick Links</h3>
+                <ul>
+                    <li><a href="#">Privacy Policy</a></li>
+                    <li><a href="#">Terms of Service</a></li>
+                    <li><a href="help.html">Help Center</a></li>
+                </ul>
+            </div>
+        </div>
+    </footer>
+
+    <script src="../js/api.js"></script>
+    <script src="../js/main.js"></script>
+    <script>
+        // ── Read URL params ──────────────────────────────────────────────
+        const params       = new URLSearchParams(window.location.search);
+        const categorySlug = params.get('category') || '';
+        const searchQuery  = params.get('search')   || '';
+
+        let allProducts = [];  // store for client-side sort/filter
+
+        // ── Category label map ───────────────────────────────────────────
+        const CATEGORY_LABELS = {
+            'electronics':       'Electronics',
+            'sports-outdoor':    'Sports & Outdoor',
+            'home-garden':       'Home & Garden',
+            'clothing-apparel':  'Clothing & Apparel',
+            'games-toys':        'Games & Toys',
+            'beauty-health':     'Beauty & Health',
+            'automotive':        'Automotive',
+            'books-media':       'Books & Media',
+            'food-groceries':    'Food & Groceries',
+            'other':             'Other',
+        };
+
+        // ── Set page title & breadcrumb ──────────────────────────────────
+        function setPageTitle() {
+            const label = categorySlug
+                ? (CATEGORY_LABELS[categorySlug] || categorySlug)
+                : searchQuery
+                    ? `Search: "${searchQuery}"`
+                    : 'All Products';
+
+            document.getElementById('pageTitle').textContent       = label;
+            document.getElementById('breadcrumbCategory').textContent = label;
+            document.title = `${label} - Dropship`;
+
+            // Highlight active category in sidebar
+            document.querySelectorAll('.category-filter-list a').forEach(a => {
+                a.classList.remove('active');
+                const href = a.getAttribute('href');
+                if (categorySlug && href.includes(`category=${categorySlug}`)) {
+                    a.classList.add('active');
+                } else if (!categorySlug && href === 'products.html') {
+                    a.classList.add('active');
+                }
+            });
+        }
+
+        // ── Build product card HTML ──────────────────────────────────────
+        function buildCard(product) {
+            const image = product.main_image || product.image_url
+                        || 'https://via.placeholder.com/300x200?text=No+Image';
+            const price = parseFloat(product.price).toFixed(2);
+            return `
+                <div class="product-card">
+                    <img src="${image}" alt="${product.name}" class="product-image" loading="lazy"
+                         onerror="this.src='https://via.placeholder.com/300x200?text=No+Image'">
+                    <div class="product-info">
+                        <p class="product-category">${product.category_name || ''}</p>
+                        <h3 class="product-title" title="${product.name}">${product.name}</h3>
+                        <p class="product-price">$${price}</p>
+                        <button class="add-to-cart"
+                            onclick="addToCart('${product.product_id}', '${product.name}', ${product.price})">
+                            Add to Cart
+                        </button>
+                    </div>
+                </div>`;
+        }
+
+        // ── Render products ──────────────────────────────────────────────
+        function renderProducts(products) {
+            const grid = document.getElementById('productGrid');
+            if (!products || products.length === 0) {
+                grid.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-box-open"></i>
+                        <p>No products found in this category.</p>
+                        <a href="products.html">Browse all products</a>
+                    </div>`;
+                document.getElementById('productCount').textContent = '';
+                return;
+            }
+            grid.innerHTML = products.map(buildCard).join('');
+            document.getElementById('productCount').textContent = `${products.length} product${products.length !== 1 ? 's' : ''}`;
+        }
+
+        // ── Sort products ────────────────────────────────────────────────
+        function sortProducts() {
+            const val = document.getElementById('sortSelect').value;
+            let sorted = [...allProducts];
+            if (val === 'price-asc')  sorted.sort((a, b) => a.price - b.price);
+            if (val === 'price-desc') sorted.sort((a, b) => b.price - a.price);
+            if (val === 'name-asc')   sorted.sort((a, b) => a.name.localeCompare(b.name));
+            if (val === 'name-desc')  sorted.sort((a, b) => b.name.localeCompare(a.name));
+            renderProducts(sorted);
+        }
+
+        // ── Price filter ─────────────────────────────────────────────────
+        function applyPriceFilter() {
+            const min = parseFloat(document.getElementById('minPrice').value) || 0;
+            const max = parseFloat(document.getElementById('maxPrice').value) || Infinity;
+            const filtered = allProducts.filter(p => {
+                const price = parseFloat(p.price);
+                return price >= min && price <= max;
+            });
+            renderProducts(filtered);
+        }
+
+        // ── Load products from API ───────────────────────────────────────
+        async function loadProducts() {
+            const grid = document.getElementById('productGrid');
+            grid.innerHTML = '<div class="loading-state"><i class="fas fa-spinner fa-spin"></i><p>Loading products...</p></div>';
+
+            try {
+                const apiParams = {};
+                if (categorySlug) apiParams.category = categorySlug;
+                if (searchQuery)  apiParams.search   = searchQuery;
+
+                const data  = await Products.getAll(apiParams);
+                allProducts = data.results || data || [];
+                renderProducts(allProducts);
+            } catch (err) {
+                grid.innerHTML = `
+                    <div class="error-state">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <p>Failed to load products. Please try again.</p>
+                    </div>`;
+                console.error('Product load error:', err);
+            }
+        }
+
+        // ── Init ─────────────────────────────────────────────────────────
+        document.addEventListener('DOMContentLoaded', () => {
+            setPageTitle();
+            loadProducts();
+            updateNav();
+            updateCartCount();
+        });
+    </script>
+
+</body>
+</html>

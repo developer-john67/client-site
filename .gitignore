@@ -1,0 +1,24 @@
+# Run from /home/john/ecommerce/dropship_backend
+touch .gitignore
+```
+
+Add this to `.gitignore`:
+```
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Django
+*.log
+local_settings.py
+db.sqlite3
+media/
+
+# Virtual environment
+/env/
+/venv/
+/money/
+
+# Environment variables
+.env

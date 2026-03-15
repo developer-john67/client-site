@@ -1,0 +1,15 @@
+from django.urls import path
+from . import views
+
+urlpatterns = [
+    # Customer endpoints
+    path('', views.my_orders, name='my-orders'),
+    path('create/', views.create_order, name='create-order'),
+    path('<uuid:order_id>/', views.order_detail, name='order-detail'),
+    path('<uuid:order_id>/cancel/', views.cancel_order, name='cancel-order'),
+
+    # Admin endpoints
+    path('admin/all/', views.admin_order_list, name='admin-order-list'),
+    path('admin/<uuid:order_id>/status/', views.admin_update_order_status, name='admin-update-status'),
+    path('admin/<uuid:order_id>/payment/', views.admin_update_payment_status, name='admin-update-payment'),
+]
