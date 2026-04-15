@@ -1,19 +1,40 @@
 // ─── CART (local) ────────────────────────────────────────────────────────────
 
-let cart = JSON.parse(localStorage.getItem('cart')) || [];
+function getLocalCart() {
+    return JSON.parse(localStorage.getItem('cart')) || [];
+}
+function saveLocalCart(cart) {
+    localStorage.setItem('cart', JSON.stringify(cart));
+}
 
 function updateCartCount() {
-    const cartCount = document.querySelector('.cart-count');
-    if (!cartCount) return;
+    const cartCount = document.querySelectorAll('.cart-count');
+    if (!cartCount.length) return;
 
     if (Auth.isLoggedIn()) {
         const apiCart = JSON.parse(sessionStorage.getItem('apiCart'));
         if (apiCart) {
-            cartCount.textContent = apiCart.item_count || 0;
+            // ✅ Sum quantities, not array length
+            const count = apiCart.item_count
+                || apiCart.cart_items?.reduce((sum, i) => sum + (i.quantity || 1), 0)
+                || 0;
+            cartCount.forEach(el => el.textContent = count);
+            return;
         }
+        Cart.get().then(data => {
+            sessionStorage.setItem('apiCart', JSON.stringify(data));
+            const count = data.item_count
+                || data.cart_items?.reduce((sum, i) => sum + (i.quantity || 1), 0)
+                || 0;
+            cartCount.forEach(el => el.textContent = count);
+        }).catch(() => {
+            cartCount.forEach(el => el.textContent = '0');
+        });
     } else {
-        const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
-        cartCount.textContent = totalItems;
+        // ✅ Read fresh from localStorage every time
+        const cart = getLocalCart();
+        const totalItems = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
+        cartCount.forEach(el => el.textContent = totalItems);
     }
 }
 
@@ -121,18 +142,30 @@ window.addToCart = function(productId, productName, productPrice) {
                 updateCartCount();
                 showBanner(`✓ ${productName} added to cart!`);
             })
-            .catch(err => showBanner(err.message || 'Failed to add to cart', 'error'));
+            .catch(err => {
+                showBanner(err.message || 'Failed to add to cart', 'error');
+            });
         return;
     }
 
-    // Guest cart (localStorage)
-    const existing = cart.find(item => item.id === productId);
+    // ✅ Always read fresh cart from localStorage
+    const cart = getLocalCart();
+
+    // ✅ Loose equality to avoid string/number type mismatch on IDs
+    const existing = cart.find(item => item.id == productId);
     if (existing) {
         existing.quantity += 1;
     } else {
-        cart.push({ id: productId, name: productName, price: productPrice, quantity: 1 });
+        cart.push({
+            id:       productId,
+            name:     productName,
+            price:    parseFloat(productPrice),
+            quantity: 1,
+            image:    '',
+        });
     }
-    localStorage.setItem('cart', JSON.stringify(cart));
+
+    saveLocalCart(cart);
     updateCartCount();
     showBanner(`✓ ${productName} added to cart!`);
 };
@@ -172,6 +205,23 @@ function updateNav() {
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', () => {
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/js/service-worker.js')
+                .then((registration) => {
+                    console.log('[SW] Registered:', registration.scope);
+                    registration.update();
+                })
+                .catch((error) => {
+                    console.error('[SW] Registration failed:', error);
+                });
+            
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                window.location.reload();
+            });
+        });
+    }
+    
     displayFeaturedProducts();
     updateNav();
     loadApiCartCount();
@@ -183,8 +233,7 @@ document.addEventListener('DOMContentLoaded', () => {
             loadApiCartCount();
         }
         if (e.key === 'cart') {
-            cart = JSON.parse(localStorage.getItem('cart')) || [];
-            updateCartCount();
+            updateCartCount(); 
         }
     });
 });

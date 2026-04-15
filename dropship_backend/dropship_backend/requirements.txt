@@ -1,3 +1,11 @@
-django-cassandra-engine
-cassandra-driver
+psycopg2-binary
 Pillow
+gunicorn
+uvicorn
+django-cors-headers
+djangorestframework
+whitenoise
+cryptography
+django-ratelimit
+python-dotenv
+requests

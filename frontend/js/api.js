@@ -1,6 +1,4 @@
-const API_BASE = 'http://localhost:8000/api';
-
-// ─── HELPERS ────────────────────────────────────────────────────────────────
+const API_BASE = window.location.origin + '/api';
 
 function getCSRFToken() {
   const cookie = document.cookie.split(';').find(c => c.trim().startsWith('csrftoken='));
@@ -30,9 +28,6 @@ async function request(endpoint, method = 'GET', body = null) {
   return response.status === 204 ? null : response.json();
 }
 
-
-// ─── VALIDATION HELPERS ──────────────────────────────────────────────────────
-
 function validateEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
@@ -51,9 +46,6 @@ function validateRequired(fields) {
   }
 }
 
-
-// ─── AUTH ────────────────────────────────────────────────────────────────────
-
 const Auth = {
   async login(email, password) {
     validateRequired({ 'Email': email, 'Password': password });
@@ -71,16 +63,14 @@ const Auth = {
   },
 
   async logout() {
-    // Always clear local state first — even if API call fails
-    // user should never be stuck in a logged-in state
     try {
       await request('/users/logout/', 'POST');
     } catch (_) {
-      // Swallow error — we still want to clear local state
     } finally {
       localStorage.removeItem('authToken');
       localStorage.removeItem('authUser');
       localStorage.removeItem('cart');
+      localStorage.removeItem('pendingVerificationEmail');
     }
   },
 
@@ -97,11 +87,52 @@ const Auth = {
       throw new Error('Passwords do not match.');
     }
 
-    return request('/users/register/', 'POST', {
+    const data = await request('/users/register/', 'POST', {
       username: fullName.trim(),
       email: email.trim(),
       password,
     });
+
+    // Store email so the verify page can send it alongside the code
+    localStorage.setItem('pendingVerificationEmail', email.trim());
+
+    return data;
+  },
+
+  // FIX: Now sends BOTH email and code — backend requires both fields
+  async verifyEmail(code) {
+    if (!code || code.toString().trim().length !== 6) {
+      throw new Error('Please enter a valid 6-digit code.');
+    }
+
+    const email = localStorage.getItem('pendingVerificationEmail');
+    if (!email) {
+      throw new Error('Session expired. Please sign up again.');
+    }
+
+    const data = await request('/users/verify-email/', 'POST', {
+      email: email,
+      code: code.toString().trim(),
+    });
+
+    // Clear stored email after successful verification
+    localStorage.removeItem('pendingVerificationEmail');
+
+    return data;
+  },
+
+  // Resend a new verification code — pulls email from localStorage if not passed
+  async resendVerificationCode(email) {
+    const targetEmail = email || localStorage.getItem('pendingVerificationEmail');
+    if (!targetEmail || !validateEmail(targetEmail)) {
+      throw new Error('Please provide a valid email address.');
+    }
+    return request('/users/resend-code/', 'POST', { email: targetEmail.trim() });
+  },
+
+  // Check if the current user's email is verified
+  async checkVerificationStatus() {
+    return request('/users/verification-status/');
   },
 
   async getProfile() {
@@ -125,9 +156,6 @@ const Auth = {
   },
 };
 
-
-// ─── PRODUCTS ────────────────────────────────────────────────────────────────
-
 const Products = {
   async getAll(params = {}) {
     const query = new URLSearchParams(params).toString();
@@ -148,7 +176,6 @@ const Products = {
     return request(`/products/?search=${encodeURIComponent(query)}`);
   },
 
-  // Admin only
   async create(formData) {
     const token = localStorage.getItem('authToken');
     if (!token) throw new Error('You must be logged in as admin.');
@@ -193,9 +220,6 @@ const Products = {
   },
 };
 
-
-// ─── CART ────────────────────────────────────────────────────────────────────
-
 const Cart = {
   async get() {
     return request('/cart/');
@@ -223,9 +247,6 @@ const Cart = {
   },
 };
 
-
-// ─── ORDERS ──────────────────────────────────────────────────────────────────
-
 const Orders = {
   async getAll() {
     return request('/orders/');
@@ -241,7 +262,7 @@ const Orders = {
     if (!orderData.items || orderData.items.length === 0) {
       throw new Error('Order must contain at least one item.');
     }
-    return request('/orders/', 'POST', orderData);
+    return request('/orders/create/', 'POST', orderData);
   },
 
   async cancel(id) {

@@ -6,6 +6,12 @@
     <title>Sign Up - Dropship</title>
     <link rel="stylesheet" href="../css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="manifest" href="../manifest.json">
+    <meta name="theme-color" content="#3b82f6">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Dropship">
+    <link rel="apple-touch-icon" href="../images/icon-192.svg">
 </head>
 <body>
     <nav class="navbar">
@@ -71,9 +77,9 @@
 
             try {
                 await Auth.register(fullName, email, password);
-                successMsg.textContent = 'Account created! Redirecting to login...';
+                successMsg.textContent = 'Verification code sent! Check your email. Redirecting...';
                 successMsg.style.display = 'block';
-                setTimeout(() => window.location.href = 'login.html', 2000);
+                setTimeout(() => window.location.href = 'verify-email.html?email=' + encodeURIComponent(email), 2000);
             } catch (err) {
                 errorMsg.textContent = err.message || 'Registration failed. Please try again.';
                 errorMsg.style.display = 'block';

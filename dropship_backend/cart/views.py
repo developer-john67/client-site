@@ -3,28 +3,36 @@
 from rest_framework import status, permissions
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
+from django.utils import timezone
 import uuid
-from datetime import datetime
 from .models import Cart, CartItem
 from .serializers import CartSerializer, CartItemSerializer
 
 
 def get_user_from_token(request):
+    import sys
+    from django.utils import timezone
     auth_header = request.headers.get('Authorization', '')
-    if not auth_header.startswith('Bearer '):
+    token = auth_header.split(' ')[1] if auth_header.startswith('Bearer ') else None
+    print(f"[DEBUG get_user] Token: {token[:40] if token else 'NONE'}", file=sys.stderr)
+    if not token:
+        print("[DEBUG get_user] No token, returning None", file=sys.stderr)
         return None
-    token = auth_header.split(' ')[1]
     try:
         from users.models import UserSession, User
         sessions = list(UserSession.objects.filter(token=token))
         if not sessions:
+            print(f"[DEBUG get_user] Token NOT FOUND in DB", file=sys.stderr)
             return None
         session = sessions[0]
-        if session.expires_at < datetime.utcnow():
+        if session.expires_at < timezone.now():
+            print(f"[DEBUG get_user] Session expired", file=sys.stderr)
             return None
         users = list(User.objects.filter(user_id=session.user_id))
+        print(f"[DEBUG get_user] Found user: {users[0].email if users else 'NONE'}", file=sys.stderr)
         return users[0] if users else None
-    except Exception:
+    except Exception as e:
+        print(f"[DEBUG get_user] Error: {e}", file=sys.stderr)
         return None
 
 
@@ -57,8 +65,8 @@ def get_or_create_cart(user_id=None, session_id=None):
         session_id = session_id or '',
         item_count = 0,
         subtotal   = 0,
-        created_at = datetime.utcnow(),
-        updated_at = datetime.utcnow(),
+        created_at = timezone.now(),
+        updated_at = timezone.now(),
     )
     return cart
 
@@ -68,7 +76,7 @@ def recalculate_cart(cart):
     cart_items     = list(CartItem.objects.filter(cart_id=cart.cart_id))
     cart.item_count = sum(item.quantity for item in cart_items)
     cart.subtotal   = sum(item.total_price for item in cart_items)
-    cart.updated_at = datetime.utcnow()
+    cart.updated_at = timezone.now()
     cart.save()
     return cart
 
@@ -93,10 +101,21 @@ def get_cart(request):
 @permission_classes([permissions.AllowAny])
 def add_to_cart(request):
     """Add an item to cart"""
+    import sys
+    print("=" * 50, file=sys.stderr)
+    print("[DEBUG] add_to_cart called", file=sys.stderr)
+    print(f"[DEBUG] Authorization: {request.headers.get('Authorization', 'NONE')[:50]}", file=sys.stderr)
+    print(f"[DEBUG] Data: {dict(request.data)}", file=sys.stderr)
+    print("=" * 50, file=sys.stderr)
+    
     user       = get_user_from_token(request)
     session_id = request.headers.get('X-Session-ID', '')
     user_id    = user.user_id if user else None
+    
+    print(f"[DEBUG] user: {user}, user_id: {user_id}, session_id: '{session_id}'")
+    
     cart       = get_or_create_cart(user_id=user_id, session_id=session_id)
+    print(f"[DEBUG] cart created/retrieved: {cart.cart_id}, user_id: {cart.user_id}, session_id: {cart.session_id}")
 
     product_id_raw = request.data.get('product_id')
     variant_id_raw = request.data.get('variant_id')
@@ -114,7 +133,7 @@ def add_to_cart(request):
 
     variant_id = parse_uuid(variant_id_raw)
 
-    # ── Fetch product from Cassandra to get name/price ────────────────────────
+    # ── Fetch product from database to get name/price ────────────────────────
     product_name  = request.data.get('product_name', '')
     product_image = request.data.get('product_image', '')
     product_slug  = request.data.get('product_slug', '')
@@ -159,7 +178,7 @@ def add_to_cart(request):
     if existing:
         existing.quantity    += quantity
         existing.total_price  = existing.unit_price * existing.quantity
-        existing.updated_at   = datetime.utcnow()
+        existing.updated_at   = timezone.now()
         existing.save()
     else:
         # Convert UUIDs to strings for serializer, omit None values
@@ -191,6 +210,8 @@ def add_to_cart(request):
     cart_items = list(CartItem.objects.filter(cart_id=cart.cart_id))
     cart_data  = CartSerializer(cart).data
     cart_data['cart_items'] = CartItemSerializer(cart_items, many=True).data
+    
+    print(f"[DEBUG] add_to_cart - cart_id: {cart.cart_id}, user_id: {cart.user_id}, session_id: {cart.session_id}, items_count: {len(cart_items)}")
 
     return Response(cart_data, status=status.HTTP_200_OK)
 
@@ -214,7 +235,7 @@ def update_cart_item(request, item_id):
 
     item.quantity    = quantity
     item.total_price = item.unit_price * quantity
-    item.updated_at  = datetime.utcnow()
+    item.updated_at  = timezone.now()
     item.save()
 
     try:
@@ -265,7 +286,7 @@ def clear_cart(request, cart_id):
 
     cart.item_count = 0
     cart.subtotal   = 0
-    cart.updated_at = datetime.utcnow()
+    cart.updated_at = timezone.now()
     cart.save()
 
     return Response({'message': 'Cart cleared', 'cart_id': str(cart_id)})

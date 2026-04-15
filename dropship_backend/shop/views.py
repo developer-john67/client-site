@@ -1,6 +1,5 @@
 import os
 import uuid
-from datetime import datetime
 
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required, user_passes_test
@@ -16,26 +15,65 @@ def is_admin(user):
     return user.is_active and (user.is_staff or user.is_superuser)
 
 
+def generate_unique_slug(base_name):
+    """Generate a slug that doesn't already exist in the DB."""
+    base_slug = base_name.lower().strip().replace(' ', '-')
+    slug = base_slug
+    counter = 1
+    while Product.objects.filter(slug=slug).exists():
+        slug = f"{base_slug}-{counter}"
+        counter += 1
+    return slug
+
+
+def resolve_category(category_raw):
+    """Return (category_id, category_name) from form input, or (None, 'Uncategorised')."""
+    category_name = str(category_raw)
+
+    # Try direct UUID
+    try:
+        cat = Category.objects.get(category_id=uuid.UUID(str(category_raw)))
+        return cat.category_id, cat.name
+    except (ValueError, AttributeError, Category.DoesNotExist):
+        pass
+
+    # Try by name
+    cat = Category.objects.filter(name__iexact=category_name).first()
+    if cat:
+        return cat.category_id, cat.name
+
+    # Try by slug
+    slug_try = category_name.lower().strip().replace(' ', '-')
+    cat = Category.objects.filter(slug=slug_try).first()
+    if cat:
+        return cat.category_id, cat.name
+
+    return None, 'Uncategorised'
+
+
+def save_uploaded_image(image_file):
+    """Write image to MEDIA_ROOT and return the relative path, or '' on failure."""
+    try:
+        ext      = os.path.splitext(image_file.name)[1].lower()
+        filename = f"products/{uuid.uuid4()}{ext}"
+        filepath = os.path.join(settings.MEDIA_ROOT, filename)
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        with open(filepath, 'wb+') as dest:
+            for chunk in image_file.chunks():
+                dest.write(chunk)
+        return filename
+    except Exception as e:
+        # Log and continue — don't crash the whole upload for a bad image
+        print(f"[image upload error] {e}")
+        return ''
+
+
 @login_required(login_url='/admin-login/')
 @user_passes_test(is_admin, login_url='/admin-login/')
 def product_upload(request):
     if request.method == 'POST':
         form = ProductUploadForm(request.POST, request.FILES)
         if form.is_valid():
-            # ─── Handle image upload ───────────────────────────────────────
-            image_url = ''
-            if 'image' in request.FILES:
-                image_file = request.FILES['image']
-                ext      = os.path.splitext(image_file.name)[1].lower()
-                filename = f"products/{uuid.uuid4()}{ext}"
-                filepath = os.path.join(settings.MEDIA_ROOT, filename)
-                os.makedirs(os.path.dirname(filepath), exist_ok=True)
-                with open(filepath, 'wb+') as destination:
-                    for chunk in image_file.chunks():
-                        destination.write(chunk)
-                image_url = filename
-
-            # ─── Map form fields → products.Product fields ─────────────────
             name         = form.cleaned_data['name']
             description  = form.cleaned_data.get('description', '')
             price        = form.cleaned_data['price']
@@ -43,46 +81,13 @@ def product_upload(request):
             is_active    = form.cleaned_data.get('is_active', True)
             category_raw = form.cleaned_data.get('category', '')
 
-            slug = name.lower().strip().replace(' ', '-')
-            sku  = f"SKU-{uuid.uuid4().hex[:8].upper()}"
+            slug         = generate_unique_slug(name)            # ← fixed
+            sku          = f"SKU-{uuid.uuid4().hex[:8].upper()}"
+            image_url    = save_uploaded_image(request.FILES['image']) \
+                           if 'image' in request.FILES else ''
+            category_id, category_name = resolve_category(category_raw)  # ← fixed
 
-            # ─── Resolve category ──────────────────────────────────────────
-            category_id   = None
-            category_name = str(category_raw)
-
-            # Try direct UUID
-            try:
-                category_id = uuid.UUID(str(category_raw))
-            except (ValueError, AttributeError):
-                pass
-
-            # Try by name
-            if not category_id:
-                try:
-                    cats = list(Category.objects.filter(name=str(category_raw)))
-                    if cats:
-                        category_id   = cats[0].category_id
-                        category_name = cats[0].name
-                except Exception:
-                    pass
-
-            # Try by slug
-            if not category_id:
-                try:
-                    slug_try = str(category_raw).lower().strip().replace(' ', '-')
-                    cats = list(Category.objects.filter(slug=slug_try))
-                    if cats:
-                        category_id   = cats[0].category_id
-                        category_name = cats[0].name
-                except Exception:
-                    pass
-
-            if not category_id:
-                category_id = uuid.uuid4()  # fallback — uncategorised
-
-            # ─── Save to Cassandra ─────────────────────────────────────────
-            Product.create(
-                product_id    = uuid.uuid4(),
+            Product.objects.create(
                 name          = name,
                 slug          = slug,
                 sku           = sku,
@@ -94,8 +99,6 @@ def product_upload(request):
                 stock         = stock,
                 is_available  = is_active,
                 is_featured   = False,
-                created_at    = datetime.utcnow(),
-                updated_at    = datetime.utcnow(),
             )
 
             messages.success(request, f"✅ Product '{name}' uploaded successfully!")
@@ -105,9 +108,8 @@ def product_upload(request):
     else:
         form = ProductUploadForm()
 
-    # Show ALL recent products (active + inactive) so admin sees everything
     try:
-        recent_products = list(Product.objects.all().limit(10))
+        recent_products = list(Product.objects.all()[:10])
     except Exception:
         recent_products = []
 
@@ -122,7 +124,7 @@ def product_upload(request):
 @user_passes_test(is_admin, login_url='/admin-login/')
 def product_list(request):
     try:
-        products = list(Product.objects.all().limit(50))
+        products = list(Product.objects.all()[:50])
     except Exception:
         products = []
 
@@ -153,3 +155,4 @@ def admin_login(request):
 def admin_logout(request):
     logout(request)
     return redirect('admin_login')
+

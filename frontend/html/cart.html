@@ -6,6 +6,12 @@
     <title>Your Cart - Dropship</title>
     <link rel="stylesheet" href="../css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="manifest" href="../manifest.json">
+    <meta name="theme-color" content="#3b82f6">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Dropship">
+    <link rel="apple-touch-icon" href="../images/icon-192.svg">
     <style>
         .cart-page { padding: 32px 0 64px; min-height: 70vh; }
         .cart-page h1 { font-size: 26px; font-weight: 700; margin-bottom: 28px; color: #111; }
@@ -258,164 +264,185 @@
 <script src="../js/main.js"></script>
 <script>
     // ── State ──────────────────────────────────────────────────────────────────
-    let cartData  = [];   // array of normalised item objects
-    let isApiCart = false;
+let cartData  = [];
+let isApiCart = false;
 
-    // Normalise API cart item and localStorage item to same shape
-    const MEDIA_URL = 'http://localhost:8000/media/';
+const MEDIA_URL = window.location.origin + '/media/';
 
-    function normaliseApiItem(item) {
-        let image = item.product_image || '';
-        if (image && !image.startsWith('http')) image = MEDIA_URL + image;
-        return {
-            id:         item.item_id,
-            product_id: item.product_id,
-            name:       item.product_name,
-            image:      image,
-            price:      parseFloat(item.unit_price),
-            quantity:   item.quantity,
-            total:      parseFloat(item.total_price),
-        };
-    }
+function normaliseApiItem(item) {
+    let image = item.product_image || '';
+    if (image && !image.startsWith('http')) image = MEDIA_URL + image;
+    return {
+        id:         String(item.item_id),
+        product_id: String(item.product_id),
+        name:       item.product_name  || 'Unnamed product',
+        image:      image,
+        price:      parseFloat(item.unit_price)  || 0,
+        quantity:   parseInt(item.quantity)       || 1,
+        total:      parseFloat(item.total_price)  || 0,
+    };
+}
 
-    function normaliseLocalItem(item) {
-        return {
-            id:         item.id,
-            product_id: item.id,
-            name:       item.name,
-            image:      item.image || '',
-            price:      parseFloat(item.price),
-            quantity:   item.quantity,
-            total:      parseFloat(item.price) * item.quantity,
-        };
-    }
+function normaliseLocalItem(item) {
+    const id       = String(item.id || item.product_id || '');
+    const price    = parseFloat(item.price)    || 0;
+    const quantity = parseInt(item.quantity)   || 1;  // ✅ fallback to 1
+    return {
+        id:         id,
+        product_id: id,
+        name:       item.name  || 'Unnamed product',
+        image:      item.image || '',
+        price:      price,
+        quantity:   quantity,
+        total:      price * quantity,
+    };
+}
 
-    // ── Load cart ──────────────────────────────────────────────────────────────
-    async function loadCart() {
-        try {
-            if (Auth.isLoggedIn()) {
-                isApiCart = true;
-                const data = await Cart.get();
-                cartData = (data.cart_items || []).map(normaliseApiItem);
-                sessionStorage.setItem('apiCart', JSON.stringify(data));
-                updateCartCount();
+// ── Load cart ──────────────────────────────────────────────────────────────
+async function loadCart() {
+    try {
+        if (Auth.isLoggedIn()) {
+            isApiCart = true;
+            const data = await Cart.get();
+            const apiItems = (data.cart_items || []).map(normaliseApiItem);
+
+            // ── Merge guest cart into API cart if needed ──
+            const local = JSON.parse(localStorage.getItem('cart')) || [];
+            if (local.length > 0 && apiItems.length === 0) {
+                for (const item of local) {
+                    try {
+                        await Cart.addItem(String(item.id || item.product_id), item.quantity || 1);
+                    } catch (e) { /* skip unfound products */ }
+                }
+                localStorage.removeItem('cart');
+                const fresh = await Cart.get();
+                cartData = (fresh.cart_items || []).map(normaliseApiItem);
+                sessionStorage.setItem('apiCart', JSON.stringify(fresh));
             } else {
-                isApiCart = false;
-                const local = JSON.parse(localStorage.getItem('cart')) || [];
-                cartData = local.map(normaliseLocalItem);
+                cartData = apiItems;
+                sessionStorage.setItem('apiCart', JSON.stringify(data));
             }
-        } catch (e) {
+
+        } else {
             isApiCart = false;
             const local = JSON.parse(localStorage.getItem('cart')) || [];
             cartData = local.map(normaliseLocalItem);
         }
-
-        render();
+    } catch (e) {
+        console.error('[cart] loadCart error:', e);
+        // ✅ Always fall back to localStorage — never show empty on API error
+        isApiCart = false;
+        const local = JSON.parse(localStorage.getItem('cart')) || [];
+        cartData = local.map(normaliseLocalItem);
     }
 
-    // ── Render ─────────────────────────────────────────────────────────────────
-    function render() {
-        if (cartData.length === 0) {
-            document.getElementById('emptyState').style.display  = 'block';
-            document.getElementById('cartLayout').style.display  = 'none';
-            updateCartCount();
-            return;
-        }
+    render();
+}
 
-        document.getElementById('emptyState').style.display  = 'none';
-        document.getElementById('cartLayout').style.display  = 'grid';
-
-        // Items
-        document.getElementById('cartItemsPanel').innerHTML = cartData.map(item => `
-            <div class="cart-item" id="row-${item.id}">
-                <img src="${item.image || 'https://via.placeholder.com/80'}"
-                     onerror="this.src='https://via.placeholder.com/80'"
-                     alt="${item.name}">
-                <div class="cart-item-info">
-                    <h4>${item.name}</h4>
-                    <div class="unit-price">$${item.price.toFixed(2)} each</div>
-                    <div class="item-total">$${(item.price * item.quantity).toFixed(2)}</div>
-                </div>
-                <div class="qty-controls">
-                    <button class="qty-btn" onclick="changeQty('${item.id}', ${item.quantity - 1})">−</button>
-                    <span class="qty-display">${item.quantity}</span>
-                    <button class="qty-btn" onclick="changeQty('${item.id}', ${item.quantity + 1})">+</button>
-                </div>
-                <button class="remove-btn" onclick="removeItem('${item.id}')" title="Remove">
-                    <i class="fas fa-trash"></i>
-                </button>
-            </div>
-        `).join('');
-
-        // Summary
-        const subtotal = cartData.reduce((s, i) => s + i.price * i.quantity, 0);
-        const shipping = subtotal >= 50 ? 0 : 5.00;
-        const total    = subtotal + shipping;
-        const count    = cartData.reduce((s, i) => s + i.quantity, 0);
-
-        document.getElementById('itemCount').textContent   = count;
-        document.getElementById('subtotalVal').textContent = `$${subtotal.toFixed(2)}`;
-        document.getElementById('shippingVal').textContent = shipping === 0 ? 'Free' : `$${shipping.toFixed(2)}`;
-        document.getElementById('totalVal').textContent    = `$${total.toFixed(2)}`;
-
+// ── Render ─────────────────────────────────────────────────────────────────
+function render() {
+    if (cartData.length === 0) {
+        document.getElementById('emptyState').style.display = 'block';
+        document.getElementById('cartLayout').style.display = 'none';
         updateCartCount();
+        return;
     }
 
-    // ── Change quantity ────────────────────────────────────────────────────────
-    window.changeQty = async function(itemId, newQty) {
-        if (newQty < 1) { removeItem(itemId); return; }
+    document.getElementById('emptyState').style.display = 'none';
+    document.getElementById('cartLayout').style.display = 'grid';
 
-        if (isApiCart) {
-            try {
-                const data = await Cart.updateItem(itemId, newQty);
-                cartData = (data.cart_items || []).map(normaliseApiItem);
-                sessionStorage.setItem('apiCart', JSON.stringify(data));
-            } catch (e) {
-                showBanner('Failed to update quantity', 'error');
-                return;
-            }
-        } else {
-            const item = cartData.find(i => i.id == itemId);
-            if (item) item.quantity = newQty;
-            const local = cartData.map(i => ({ id: i.id, name: i.name, price: i.price, quantity: i.quantity, image: i.image }));
-            localStorage.setItem('cart', JSON.stringify(local));
-        }
-        render();
-    };
+    document.getElementById('cartItemsPanel').innerHTML = cartData.map(item => `
+        <div class="cart-item" id="row-${item.id}">
+            <img src="${item.image || 'https://via.placeholder.com/80'}"
+                 onerror="this.src='https://via.placeholder.com/80'"
+                 alt="${item.name}">
+            <div class="cart-item-info">
+                <h4>${item.name}</h4>
+                <div class="unit-price">$${item.price.toFixed(2)} each</div>
+                <div class="item-total">$${(item.price * item.quantity).toFixed(2)}</div>
+            </div>
+            <div class="qty-controls">
+                <button class="qty-btn" onclick="changeQty('${item.id}', ${item.quantity - 1})">−</button>
+                <span class="qty-display">${item.quantity}</span>
+                <button class="qty-btn" onclick="changeQty('${item.id}', ${item.quantity + 1})">+</button>
+            </div>
+            <button class="remove-btn" onclick="removeItem('${item.id}')" title="Remove">
+                <i class="fas fa-trash"></i>
+            </button>
+        </div>
+    `).join('');
 
-    // ── Remove item ────────────────────────────────────────────────────────────
-    window.removeItem = async function(itemId) {
-        if (isApiCart) {
-            try {
-                const data = await Cart.removeItem(itemId);
-                cartData = (data.cart_items || []).map(normaliseApiItem);
-                sessionStorage.setItem('apiCart', JSON.stringify(data));
-            } catch (e) {
-                showBanner('Failed to remove item', 'error');
-                return;
-            }
-        } else {
-            cartData = cartData.filter(i => i.id != itemId);
-            const local = cartData.map(i => ({ id: i.id, name: i.name, price: i.price, quantity: i.quantity, image: i.image }));
-            localStorage.setItem('cart', JSON.stringify(local));
-        }
-        render();
-    };
+    const subtotal = cartData.reduce((s, i) => s + i.price * i.quantity, 0);
+    const shipping = subtotal >= 50 ? 0 : 5.00;
+    const total    = subtotal + shipping;
+    const count    = cartData.reduce((s, i) => s + i.quantity, 0);
 
-    // ── Checkout button ────────────────────────────────────────────────────────
-    document.getElementById('checkoutBtn').addEventListener('click', () => {
-        if (!Auth.isLoggedIn()) {
-            window.location.href = 'login.html?redirect=checkout.html';
+    document.getElementById('itemCount').textContent   = count;
+    document.getElementById('subtotalVal').textContent = `$${subtotal.toFixed(2)}`;
+    document.getElementById('shippingVal').textContent = shipping === 0 ? 'Free' : `$${shipping.toFixed(2)}`;
+    document.getElementById('totalVal').textContent    = `$${total.toFixed(2)}`;
+
+    updateCartCount();
+}
+
+// ── Change quantity ────────────────────────────────────────────────────────
+window.changeQty = async function(itemId, newQty) {
+    if (newQty < 1) { removeItem(itemId); return; }
+
+    if (isApiCart) {
+        try {
+            const data = await Cart.updateItem(itemId, newQty);
+            cartData = (data.cart_items || []).map(normaliseApiItem);
+            sessionStorage.setItem('apiCart', JSON.stringify(data));
+        } catch (e) {
+            showBanner('Failed to update quantity', 'error');
             return;
         }
-        window.location.href = 'checkout.html';
-    });
+    } else {
+        const item = cartData.find(i => i.id == itemId);
+        if (item) item.quantity = newQty;
+        // ✅ Save back with all fields including image
+        localStorage.setItem('cart', JSON.stringify(
+            cartData.map(i => ({ id: i.id, name: i.name, price: i.price, quantity: i.quantity, image: i.image }))
+        ));
+    }
+    render();
+};
 
-    // ── Init ───────────────────────────────────────────────────────────────────
-    document.addEventListener('DOMContentLoaded', () => {
-        updateNav();
-        loadCart();
-    });
+// ── Remove item ────────────────────────────────────────────────────────────
+window.removeItem = async function(itemId) {
+    if (isApiCart) {
+        try {
+            const data = await Cart.removeItem(itemId);
+            cartData = (data.cart_items || []).map(normaliseApiItem);
+            sessionStorage.setItem('apiCart', JSON.stringify(data));
+        } catch (e) {
+            showBanner('Failed to remove item', 'error');
+            return;
+        }
+    } else {
+        cartData = cartData.filter(i => i.id != itemId);
+        localStorage.setItem('cart', JSON.stringify(
+            cartData.map(i => ({ id: i.id, name: i.name, price: i.price, quantity: i.quantity, image: i.image }))
+        ));
+    }
+    render();
+};
+
+// ── Checkout button ────────────────────────────────────────────────────────
+document.getElementById('checkoutBtn').addEventListener('click', () => {
+    if (!Auth.isLoggedIn()) {
+        window.location.href = 'login.html?redirect=checkout.html';
+        return;
+    }
+    window.location.href = 'checkout.html';
+});
+
+// ── Init ───────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    updateNav();
+    loadCart();
+});
 </script>
 </body>
 </html>

@@ -101,6 +101,41 @@ body {
     gap: 1rem;
 }
 
+.search-box {
+    display: flex;
+    align-items: center;
+    background: rgba(255,255,255,0.2);
+    border-radius: 25px;
+    padding: 0.3rem 0.5rem;
+}
+
+.search-box input {
+    border: none;
+    background: transparent;
+    color: white;
+    padding: 0.4rem 0.8rem;
+    width: 180px;
+    font-size: 0.9rem;
+    outline: none;
+}
+
+.search-box input::placeholder {
+    color: rgba(255,255,255,0.7);
+}
+
+.search-box button {
+    background: transparent;
+    border: none;
+    color: white;
+    cursor: pointer;
+    padding: 0.3rem 0.6rem;
+    font-size: 1rem;
+}
+
+.search-box button:hover {
+    color: #ffd700;
+}
+
 .btn-signup,
 .btn-login {
     padding: 0.5rem 1rem;

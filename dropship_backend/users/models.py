@@ -1,91 +1,72 @@
-from django.db import models
-from cassandra.cqlengine import columns
-from django_cassandra_engine.models import DjangoCassandraModel
 import uuid
+from django.db import models
 from datetime import datetime
 
 
-class User(DjangoCassandraModel):
-    """User model for Cassandra"""
-    __keyspace__ = 'dropship_keyspace'
-    __table_name__ = 'users'
+class User(models.Model):
+    user_id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    username = models.CharField(max_length=150, unique=True, db_index=True)
+    email = models.EmailField(unique=True, db_index=True)
+    password_hash = models.CharField(max_length=255)
+    first_name = models.CharField(max_length=100, blank=True, default='')
+    last_name = models.CharField(max_length=100, blank=True, default='')
+    phone = models.CharField(max_length=20, blank=True, default='')
+    date_of_birth = models.DateField(null=True, blank=True)
+    profile_picture = models.TextField(blank=True, default='')
+    user_type = models.CharField(max_length=50, default='customer')
 
-    user_id = columns.UUID(primary_key=True, default=uuid.uuid4)
-    username = columns.Text(required=True, index=True)
-    email = columns.Text(required=True, index=True)
-    password_hash = columns.Text(required=True)
-    first_name = columns.Text()
-    last_name = columns.Text()
-    phone = columns.Text()
-    date_of_birth = columns.Date()
-    profile_picture = columns.Text()
-    user_type = columns.Text(default='customer')
+    newsletter_subscribed = models.BooleanField(default=False)
+    email_notifications = models.BooleanField(default=True)
 
-    # Email preferences
-    newsletter_subscribed = columns.Boolean(default=False)
-    email_notifications = columns.Boolean(default=True)
+    email_verified = models.BooleanField(default=False)
+    verification_token = models.CharField(max_length=255, blank=True, default='')
+    reset_password_token = models.CharField(max_length=255, blank=True, default='')
+    is_active = models.BooleanField(default=True)
+    is_staff = models.BooleanField(default=False)
+    is_superuser = models.BooleanField(default=False)
 
-    # Account status
-    email_verified = columns.Boolean(default=False)
-    verification_token = columns.Text()
-    reset_password_token = columns.Text()
-    is_active = columns.Boolean(default=True)
-    is_staff = columns.Boolean(default=False)
-    is_superuser = columns.Boolean(default=False)
-
-    # Timestamps
-    last_login = columns.DateTime()
-    last_login_ip = columns.Text()
-    created_at = columns.DateTime(default=datetime.utcnow)
-    updated_at = columns.DateTime(default=datetime.utcnow)
+    last_login = models.DateTimeField(null=True, blank=True)
+    last_login_ip = models.CharField(max_length=50, blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        get_pk_field = 'user_id'
+        db_table = 'users'
 
 
-class UserAddress(DjangoCassandraModel):
-    """User addresses model"""
-    __keyspace__ = 'dropship_keyspace'
-    __table_name__ = 'user_addresses'
+class UserAddress(models.Model):
+    address_id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='addresses', db_index=True)
+    address_type = models.CharField(max_length=50, default='shipping')
+    is_default = models.BooleanField(default=False)
 
-    address_id = columns.UUID(primary_key=True, default=uuid.uuid4)
-    user_id = columns.UUID(required=True, index=True)
-    address_type = columns.Text(default='shipping')
-    is_default = columns.Boolean(default=False)
+    first_name = models.CharField(max_length=100)
+    last_name = models.CharField(max_length=100)
+    company = models.CharField(max_length=200, blank=True, default='')
+    address_line1 = models.CharField(max_length=255)
+    address_line2 = models.CharField(max_length=255, blank=True, default='')
+    city = models.CharField(max_length=100)
+    state = models.CharField(max_length=100)
+    postal_code = models.CharField(max_length=20)
+    country = models.CharField(max_length=50, default='US')
+    phone = models.CharField(max_length=20)
 
-    # Address details
-    first_name = columns.Text(required=True)
-    last_name = columns.Text(required=True)
-    company = columns.Text()
-    address_line1 = columns.Text(required=True)
-    address_line2 = columns.Text()
-    city = columns.Text(required=True)
-    state = columns.Text(required=True)
-    postal_code = columns.Text(required=True)
-    country = columns.Text(required=True, default='US')
-    phone = columns.Text(required=True)
-
-    # Additional info
-    delivery_instructions = columns.Text()
-    created_at = columns.DateTime(default=datetime.utcnow)
-    updated_at = columns.DateTime(default=datetime.utcnow)
+    delivery_instructions = models.TextField(blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        get_pk_field = 'address_id'
+        db_table = 'user_addresses'
 
 
-class UserSession(DjangoCassandraModel):
-    """User sessions for authentication"""
-    __keyspace__ = 'dropship_keyspace'
-    __table_name__ = 'user_sessions'
-
-    session_id = columns.UUID(primary_key=True, default=uuid.uuid4)
-    user_id = columns.UUID(required=True, index=True)
-    token = columns.Text(required=True, index=True)
-    ip_address = columns.Text()
-    user_agent = columns.Text()
-    expires_at = columns.DateTime()
-    created_at = columns.DateTime(default=datetime.utcnow)
+class UserSession(models.Model):
+    session_id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sessions', db_index=True)
+    token = models.CharField(max_length=500, unique=True, db_index=True)
+    ip_address = models.CharField(max_length=50, blank=True, default='')
+    user_agent = models.TextField(blank=True, default='')
+    expires_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        get_pk_field = 'session_id'
+        db_table = 'user_sessions'

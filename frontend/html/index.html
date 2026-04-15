@@ -6,6 +6,12 @@
     <title>Dropship - Your Shopping Destination</title>
     <link rel="stylesheet" href="../css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="manifest" href="../manifest.json">
+    <meta name="theme-color" content="#3b82f6">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Dropship">
+    <link rel="apple-touch-icon" href="../images/icon-192.svg">
 </head>
 <body>
     <nav class="navbar">
@@ -75,6 +81,10 @@
                 <li><a href="account.html">Account</a></li>
             </ul>
             <div class="nav-actions">
+                <div class="search-box">
+                    <input type="text" id="searchInput" placeholder="Search products..." autocomplete="off">
+                    <button type="button" id="searchBtn"><i class="fas fa-search"></i></button>
+                </div>
                 <a href="signup.html" class="btn-signup">Sign Up</a>
                 <a href="login.html" class="btn-login">Login</a>
                 <a href="cart.html" class="cart-icon">
@@ -175,6 +185,29 @@
     <script src="../js/api.js"></script>
     <script src="../js/main.js"></script>
     <script>
+        // Search functionality
+        const searchInput = document.getElementById('searchInput');
+        const searchBtn = document.getElementById('searchBtn');
+
+        function performSearch() {
+            const query = searchInput.value.trim();
+            if (query) {
+                window.location.href = 'products.html?search=' + encodeURIComponent(query);
+            }
+        }
+
+        if (searchBtn) {
+            searchBtn.addEventListener('click', performSearch);
+        }
+
+        if (searchInput) {
+            searchInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    performSearch();
+                }
+            });
+        }
+
         // Highlight active category in dropdown based on current URL
         const params = new URLSearchParams(window.location.search);
         const activeCategory = params.get('category');

@@ -2,7 +2,7 @@ from django import forms
 
 
 def get_category_choices():
-    """Load categories from Cassandra at runtime."""
+    """Load categories from database at runtime."""
     try:
         from products.models import Category
         cats = list(Category.objects.filter(is_active=True))
@@ -11,7 +11,6 @@ def get_category_choices():
             choices.append((str(c.category_id), c.name))
         return choices
     except Exception:
-        # Fallback if Cassandra is unavailable
         return [
             ('', '— Select a category —'),
             ('electronics',      'Electronics'),
@@ -80,5 +79,4 @@ class ProductUploadForm(forms.Form):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Load fresh categories from Cassandra on every form instantiation
         self.fields['category'].choices = get_category_choices()

@@ -6,6 +6,12 @@
     <title>Checkout - Dropship</title>
     <link rel="stylesheet" href="../css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="manifest" href="../manifest.json">
+    <meta name="theme-color" content="#3b82f6">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Dropship">
+    <link rel="apple-touch-icon" href="../images/icon-192.svg">
     <style>
         * { box-sizing: border-box; }
 
@@ -281,6 +287,111 @@
             color: #333;
         }
         .loading-spinner i { font-size: 28px; color: #3b82f6; display: block; margin-bottom: 10px; }
+
+        /* ── M-Pesa STK Push Modal ── */
+        .mpesa-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+        }
+        .mpesa-modal.visible { display: flex; }
+        .mpesa-modal-content {
+            background: #fff;
+            border-radius: 16px;
+            padding: 32px;
+            max-width: 400px;
+            width: 90%;
+            text-align: center;
+            animation: slideUp 0.3s ease;
+        }
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .mpesa-modal-content .mpesa-icon {
+            width: 80px;
+            height: 80px;
+            background: #25D366;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+        }
+        .mpesa-modal-content .mpesa-icon i {
+            font-size: 36px;
+            color: #fff;
+        }
+        .mpesa-modal-content h3 {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: #111;
+        }
+        .mpesa-modal-content p {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 20px;
+        }
+        .mpesa-amount {
+            font-size: 32px;
+            font-weight: 700;
+            color: #111;
+            margin-bottom: 20px;
+        }
+        .mpesa-phone {
+            font-size: 18px;
+            font-weight: 600;
+            color: #25D366;
+            margin-bottom: 24px;
+        }
+        .mpesa-status {
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 20px;
+        }
+        .mpesa-status.pending {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .mpesa-status.success {
+            background: #dcfce7;
+            color: #166534;
+        }
+        .mpesa-status.failed {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        .mpesa-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+        }
+        .mpesa-actions button {
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: background 0.2s;
+        }
+        .mpesa-btn-cancel {
+            background: #f3f4f6;
+            color: #555;
+        }
+        .mpesa-btn-cancel:hover { background: #e5e7eb; }
+        .mpesa-btn-retry {
+            background: #25D366;
+            color: #fff;
+        }
+        .mpesa-btn-retry:hover { background: #1da156; }
     </style>
 </head>
 <body>
@@ -310,7 +421,28 @@
     <div class="loading-overlay" id="loadingOverlay">
         <div class="loading-spinner">
             <i class="fas fa-spinner fa-spin"></i>
-            Placing your order...
+            <span id="loadingText">Placing your order...</span>
+        </div>
+    </div>
+
+    <!-- M-Pesa STK Push Modal -->
+    <div class="mpesa-modal" id="mpesaModal">
+        <div class="mpesa-modal-content">
+            <div class="mpesa-icon">
+                <i class="fas fa-mobile-alt"></i>
+            </div>
+            <h3>Pay with M-Pesa</h3>
+            <p>An STK push has been sent to your phone</p>
+            <div class="mpesa-amount" id="mpesaAmount">KES 0.00</div>
+            <div class="mpesa-phone" id="mpesaPhone">+254 712 345 678</div>
+            <div class="mpesa-status pending" id="mpesaStatus">
+                <i class="fas fa-spinner fa-spin" style="margin-right:8px;"></i>
+                Waiting for payment...
+            </div>
+            <div class="mpesa-actions">
+                <button class="mpesa-btn-cancel" onclick="cancelMpesaPayment()">Cancel</button>
+                <button class="mpesa-btn-retry" onclick="retryMpesaPayment()">Retry</button>
+            </div>
         </div>
     </div>
 
@@ -482,8 +614,8 @@
                             <!-- M-Pesa fields -->
                             <div class="card-fields" id="mpesaFields">
                                 <div class="form-group" style="margin-top:16px;">
-                                    <label>M-Pesa Phone Number</label>
-                                    <input type="tel" id="mpesaPhone" placeholder="07XX XXX XXX">
+                                    <label>M-Pesa Phone Number *</label>
+                                    <input type="tel" id="mpesaPhoneInput" placeholder="07XX XXX XXX" oninput="formatMpesaPhone(this)">
                                 </div>
                                 <p style="font-size:13px;color:#666;">You will receive an STK push to complete payment.</p>
                             </div>
@@ -584,6 +716,9 @@
         let subtotal      = 0;
         let selectedPayment = 'card';
         let shippingData  = {};
+        let currentOrderId = null;
+        let currentTransactionId = null;
+        let mpesaPollingInterval = null;
 
         // ── Load cart on init ─────────────────────────────────────────────────
         async function initCheckout() {
@@ -757,6 +892,18 @@
             if (v.length >= 2) v = v.substring(0, 2) + '/' + v.substring(2);
             input.value = v;
         }
+        function formatMpesaPhone(input) {
+            let v = input.value.replace(/\D/g, '').substring(0, 10);
+            if (v.length > 0) {
+                if (v.length <= 3) {
+                    input.value = v;
+                } else if (v.length <= 6) {
+                    input.value = v.substring(0, 3) + ' ' + v.substring(3);
+                } else {
+                    input.value = v.substring(0, 3) + ' ' + v.substring(3, 6) + ' ' + v.substring(6);
+                }
+            }
+        }
 
         // ── Place order ────────────────────────────────────────────────────────
         async function placeOrder() {
@@ -773,32 +920,54 @@
                 items:            cartItems,
                 subtotal:         subtotal,
                 shipping_cost:    shipping,
-                total:            total,
+                total_amount:    total,
             };
 
             try {
-                let orderId;
+                let orderResult;
                 if (Auth.isLoggedIn()) {
-                    const result = await Orders.create(orderData);
-                    orderId = result.order_id || result.id || 'ORD-' + Date.now();
+                    orderResult = await Orders.create(orderData);
+                    currentOrderId = orderResult.order_id || orderResult.id || 'ORD-' + Date.now();
                 } else {
-                    // Guest order — simulate order ID
                     await new Promise(r => setTimeout(r, 1200));
-                    orderId = 'ORD-' + Date.now();
-                    localStorage.removeItem('cart');
+                    currentOrderId = 'ORD-' + Date.now();
                 }
 
-                document.getElementById('confirmedOrderId').textContent = orderId;
+                if (selectedPayment === 'mpesa') {
+                    const mpesaPhoneInput = document.getElementById('mpesaPhoneInput').value.trim();
+                    if (!mpesaPhoneInput) {
+                        showBanner('Please enter your M-Pesa phone number', 'error');
+                        btn.disabled = false;
+                        document.getElementById('loadingOverlay').classList.remove('visible');
+                        return;
+                    }
+                    
+                    let formattedPhone = mpesaPhoneInput.replace(/\s/g, '').replace(/^0/, '254');
+                    if (!formattedPhone.startsWith('254')) {
+                        formattedPhone = '254' + formattedPhone;
+                    }
+                    
+                    const mpesaAmount = total;
+
+                    document.getElementById('loadingOverlay').classList.remove('visible');
+                    document.getElementById('mpesaAmount').textContent = `KES ${mpesaAmount.toFixed(2)}`;
+                    document.getElementById('mpesaPhone').textContent = '+' + formattedPhone;
+                    document.getElementById('mpesaModal').classList.add('visible');
+
+                    await initiateMpesaPayment(currentOrderId, formattedPhone, mpesaAmount);
+                    return;
+                }
+
+                document.getElementById('confirmedOrderId').textContent = currentOrderId;
                 document.getElementById('stepsBar').style.display = 'none';
 
-                // Hide all steps, show confirmation
                 ['shippingStep','paymentStep','reviewStep'].forEach(id => {
                     document.getElementById(id).style.display = 'none';
                 });
                 document.getElementById('confirmationStep').style.display = 'block';
 
-                // Clear sessionStorage cart count
                 sessionStorage.removeItem('apiCart');
+                localStorage.removeItem('cart');
                 updateCartCount();
 
             } catch (err) {
@@ -807,6 +976,121 @@
             } finally {
                 document.getElementById('loadingOverlay').classList.remove('visible');
             }
+        }
+
+        // ── M-Pesa Payment Functions ──────────────────────────────────────────
+        async function initiateMpesaPayment(orderId, phone, amount) {
+            try {
+                const response = await fetch(`${API_BASE}/orders/mpesa/initiate/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCSRFToken(),
+                        'Authorization': `Bearer ${Auth.getToken()}`,
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        order_id: orderId,
+                        phone: phone,
+                        amount: amount
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    currentTransactionId = data.checkout_request_id;
+                    document.getElementById('mpesaStatus').className = 'mpesa-status pending';
+                    document.getElementById('mpesaStatus').innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right:8px;"></i>Waiting for payment...';
+                    
+                    startMpesaPolling();
+                } else {
+                    document.getElementById('mpesaStatus').className = 'mpesa-status failed';
+                    document.getElementById('mpesaStatus').innerHTML = '<i class="fas fa-exclamation-circle" style="margin-right:8px;"></i>' + (data.error || 'Payment failed');
+                }
+            } catch (err) {
+                document.getElementById('mpesaStatus').className = 'mpesa-status failed';
+                document.getElementById('mpesaStatus').innerHTML = '<i class="fas fa-exclamation-circle" style="margin-right:8px;"></i>Payment service unavailable';
+            }
+        }
+
+        function startMpesaPolling() {
+            if (mpesaPollingInterval) clearInterval(mpesaPollingInterval);
+            
+            let pollCount = 0;
+            mpesaPollingInterval = setInterval(async () => {
+                pollCount++;
+                
+                try {
+                    const response = await fetch(`${API_BASE}/orders/mpesa/check/`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': getCSRFToken(),
+                            'Authorization': `Bearer ${Auth.getToken()}`,
+                        },
+                        credentials: 'include',
+                        body: JSON.stringify({
+                            transaction_id: currentTransactionId
+                        })
+                    });
+
+                    const data = await response.json();
+
+                    if (data.payment_status === 'success' || data.payment_status === 'paid' || data.payment_status === 'completed') {
+                        clearInterval(mpesaPollingInterval);
+                        mpesaPollingInterval = null;
+                        
+                        document.getElementById('mpesaStatus').className = 'mpesa-status success';
+                        document.getElementById('mpesaStatus').innerHTML = '<i class="fas fa-check-circle" style="margin-right:8px;"></i>Payment successful!';
+                        
+                        setTimeout(() => {
+                            document.getElementById('mpesaModal').classList.remove('visible');
+                            showOrderConfirmation();
+                        }, 1500);
+                    } else if (pollCount >= 30) {
+                        clearInterval(mpesaPollingInterval);
+                        mpesaPollingInterval = null;
+                        
+                        document.getElementById('mpesaStatus').className = 'mpesa-status failed';
+                        document.getElementById('mpesaStatus').innerHTML = '<i class="fas fa-clock" style="margin-right:8px;"></i>Payment timeout. Please try again.';
+                    }
+                } catch (err) {
+                    console.error('Polling error:', err);
+                }
+            }, 3000);
+        }
+
+        function cancelMpesaPayment() {
+            if (mpesaPollingInterval) {
+                clearInterval(mpesaPollingInterval);
+                mpesaPollingInterval = null;
+            }
+            document.getElementById('mpesaModal').classList.remove('visible');
+            document.getElementById('placeOrderBtn').disabled = false;
+            showBanner('Payment cancelled', 'info');
+        }
+
+        function retryMpesaPayment() {
+            if (currentTransactionId) {
+                document.getElementById('mpesaStatus').className = 'mpesa-status pending';
+                document.getElementById('mpesaStatus').innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right:8px;"></i>Retrying...';
+                startMpesaPolling();
+            }
+        }
+
+        function showOrderConfirmation() {
+            document.getElementById('confirmedOrderId').textContent = currentOrderId;
+            document.getElementById('stepsBar').style.display = 'none';
+
+            ['shippingStep','paymentStep','reviewStep'].forEach(id => {
+                document.getElementById(id).style.display = 'none';
+            });
+            document.getElementById('confirmationStep').style.display = 'block';
+
+            sessionStorage.removeItem('apiCart');
+            localStorage.removeItem('cart');
+            updateCartCount();
         }
 
         // ── Init ──────────────────────────────────────────────────────────────

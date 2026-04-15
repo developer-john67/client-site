@@ -1,0 +1,46 @@
+{
+    "name": "Dropship - Online Shopping",
+    "short_name": "Dropship",
+    "description": "Your one-stop destination for all your shopping needs",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#3b82f6",
+    "orientation": "portrait-primary",
+    "scope": "/",
+    "icons": [
+        {
+            "src": "/images/icon-192.svg",
+            "sizes": "192x192",
+            "type": "image/svg+xml",
+            "purpose": "any"
+        },
+        {
+            "src": "/images/icon-512.svg",
+            "sizes": "512x512",
+            "type": "image/svg+xml",
+            "purpose": "any"
+        }
+    ],
+    "categories": ["shopping", "lifestyle"],
+    "lang": "en",
+    "dir": "ltr",
+    "prefer_related_applications": false,
+    "shortcuts": [
+        {
+            "name": "Home",
+            "url": "/html/index.html",
+            "description": "Go to home page"
+        },
+        {
+            "name": "Cart",
+            "url": "/html/cart.html",
+            "description": "View your cart"
+        },
+        {
+            "name": "Account",
+            "url": "/html/account.html",
+            "description": "Your account"
+        }
+    ]
+}

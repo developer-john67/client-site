@@ -1,155 +1,135 @@
-from cassandra.cqlengine import columns
-from django_cassandra_engine.models import DjangoCassandraModel
 import uuid
+from django.db import models
 
 
-class Category(DjangoCassandraModel):
-    """Product categories"""
-    __keyspace__ = 'dropship_keyspace'
-    __table_name__ = 'categories'
-
-    category_id = columns.UUID(primary_key=True, default=uuid.uuid4)
-    name = columns.Text(required=True, index=True)
-    slug = columns.Text(required=True, index=True)
-    description = columns.Text()
-    image = columns.Text()
-    parent_id = columns.UUID()
-    is_active = columns.Boolean(default=True)
-    product_count = columns.Integer(default=0)
-    created_at = columns.DateTime()
-    updated_at = columns.DateTime()
+class Category(models.Model):
+    category_id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=200, db_index=True)
+    slug = models.SlugField(max_length=200, unique=True, db_index=True)
+    description = models.TextField(blank=True, default='')
+    image = models.TextField(blank=True, default='')
+    parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='children')
+    is_active = models.BooleanField(default=True)
+    product_count = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        get_pk_field = 'category_id'
+        db_table = 'categories'
+        verbose_name_plural = 'categories'
+
+    def __str__(self):
+        return self.name
 
 
-class Product(DjangoCassandraModel):
-    """Main product model"""
-    __keyspace__ = 'dropship_keyspace'
-    __table_name__ = 'products'
+class Product(models.Model):
+    product_id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=255)
+    slug = models.SlugField(max_length=255, unique=True, db_index=True)
+    sku = models.CharField(max_length=100, unique=True, db_index=True)
 
-    product_id = columns.UUID(primary_key=True, default=uuid.uuid4)
-    name = columns.Text(required=True)
-    slug = columns.Text(required=True, index=True)
-    sku = columns.Text(required=True, index=True)
+    description = models.TextField(blank=True, default='')
+    short_description = models.TextField(blank=True, default='')
 
-    # Description
-    description = columns.Text()
-    short_description = columns.Text()
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+    compare_at_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    cost_per_item = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 
-    # Pricing
-    price = columns.Decimal(required=True)
-    compare_at_price = columns.Decimal()
-    cost_per_item = columns.Decimal()
+    category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, related_name='products', db_index=True)
+    category_name = models.CharField(max_length=200, blank=True, default='')
+    tags = models.JSONField(default=list)
 
-    # Categorization
-    category_id = columns.UUID(required=True, index=True)
-    category_name = columns.Text()
-    tags = columns.List(value_type=columns.Text)
+    main_image = models.TextField(blank=True, default='')
+    additional_images = models.JSONField(default=list)
 
-    # Media
-    main_image = columns.Text()
-    additional_images = columns.List(value_type=columns.Text)
+    stock = models.IntegerField(default=0)
+    low_stock_threshold = models.IntegerField(default=5)
+    track_quantity = models.BooleanField(default=True)
+    continue_selling = models.BooleanField(default=False)
 
-    # Inventory
-    stock = columns.Integer(default=0)
-    low_stock_threshold = columns.Integer(default=5)
-    track_quantity = columns.Boolean(default=True)
-    continue_selling = columns.Boolean(default=False)
+    is_available = models.BooleanField(default=True)
+    is_featured = models.BooleanField(default=False, db_index=True)
 
-    # Status
-    is_available = columns.Boolean(default=True)
-    is_featured = columns.Boolean(default=False, index=True)
+    meta_title = models.CharField(max_length=200, blank=True, default='')
+    meta_description = models.TextField(blank=True, default='')
 
-    # SEO
-    meta_title = columns.Text()
-    meta_description = columns.Text()
+    specifications = models.JSONField(default=dict)
 
-    # Specifications
-    specifications = columns.Map(key_type=columns.Text, value_type=columns.Text)
+    created_by = models.UUIDField(null=True, blank=True)
+    created_by_name = models.CharField(max_length=200, blank=True, default='')
 
-    # Vendor info
-    created_by = columns.UUID()
-    created_by_name = columns.Text()
-
-    # Timestamps
-    created_at = columns.DateTime(index=True)
-    updated_at = columns.DateTime()
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        get_pk_field = 'product_id'
+        db_table = 'products'
+
+    def __str__(self):
+        return self.name
 
 
-class ProductVariant(DjangoCassandraModel):
-    """Product variants (size, color, etc.)"""
-    __keyspace__ = 'dropship_keyspace'
-    __table_name__ = 'product_variants'
+class ProductVariant(models.Model):
+    variant_id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='variants', db_index=True)
+    product_name = models.CharField(max_length=255, blank=True, default='')
 
-    variant_id = columns.UUID(primary_key=True, default=uuid.uuid4)
-    product_id = columns.UUID(required=True, index=True)
-    product_name = columns.Text()
+    name = models.CharField(max_length=200)
+    sku = models.CharField(max_length=100, unique=True, db_index=True)
 
-    name = columns.Text(required=True)
-    sku = columns.Text(required=True, index=True)
+    price_adjustment = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
-    # Pricing
-    price_adjustment = columns.Decimal(default=0)
+    stock = models.IntegerField(default=0)
 
-    # Inventory
-    stock = columns.Integer(default=0)
+    image = models.TextField(blank=True, default='')
 
-    # Media
-    image = columns.Text()
+    attributes = models.JSONField(default=dict)
 
-    # Attributes
-    attributes = columns.Map(key_type=columns.Text, value_type=columns.Text)
+    is_active = models.BooleanField(default=True)
 
-    # Status
-    is_active = columns.Boolean(default=True)
-
-    created_at = columns.DateTime()
-    updated_at = columns.DateTime()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        get_pk_field = 'variant_id'
+        db_table = 'product_variants'
+
+    def __str__(self):
+        return f"{self.product.name} - {self.name}"
 
 
-class ProductReview(DjangoCassandraModel):
-    """Product reviews"""
-    __keyspace__ = 'dropship_keyspace'
-    __table_name__ = 'product_reviews'
+class ProductReview(models.Model):
+    review_id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='reviews', db_index=True)
+    user_id = models.UUIDField(db_index=True)
+    user_name = models.CharField(max_length=200, blank=True, default='')
 
-    review_id = columns.UUID(primary_key=True, default=uuid.uuid4)
-    product_id = columns.UUID(required=True, index=True)
-    user_id = columns.UUID(required=True, index=True)
-    user_name = columns.Text()
+    rating = models.IntegerField()
+    title = models.CharField(max_length=255, blank=True, default='')
+    comment = models.TextField(blank=True, default='')
 
-    rating = columns.Integer(required=True)
-    title = columns.Text()
-    comment = columns.Text()
+    is_verified_purchase = models.BooleanField(default=False)
+    is_approved = models.BooleanField(default=False)
+    helpful_count = models.IntegerField(default=0)
 
-    is_verified_purchase = columns.Boolean(default=False)
-    is_approved = columns.Boolean(default=False)
-    helpful_count = columns.Integer(default=0)
-
-    created_at = columns.DateTime(index=True)
-    updated_at = columns.DateTime()
-
-    class Meta:
-        get_pk_field = 'review_id'
-
-
-class ProductView(DjangoCassandraModel):
-    """Track product views for analytics"""
-    __keyspace__ = 'dropship_keyspace'
-    __table_name__ = 'product_views'
-
-    view_id = columns.UUID(primary_key=True, default=uuid.uuid4)
-    product_id = columns.UUID(required=True, index=True)
-    user_id = columns.UUID()
-    session_id = columns.Text()
-    ip_address = columns.Text()
-    viewed_at = columns.DateTime(index=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        get_pk_field = 'view_id'
+        db_table = 'product_reviews'
+
+    def __str__(self):
+        return f"Review for {self.product.name}"
+
+
+class ProductView(models.Model):
+    view_id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='views', db_index=True)
+    user_id = models.UUIDField(null=True, blank=True)
+    session_id = models.CharField(max_length=200, blank=True, default='')
+    ip_address = models.CharField(max_length=50, blank=True, default='')
+    viewed_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        db_table = 'product_views'
+
+    def __str__(self):
+        return f"View: {self.product.name}"

@@ -1,8 +1,8 @@
 # cart/serializers.py
 
 from rest_framework import serializers
+from django.utils import timezone
 import uuid
-from datetime import datetime
 from .models import Cart, CartItem
 
 
@@ -26,15 +26,15 @@ class CartItemSerializer(serializers.Serializer):
         validated_data['total_price'] = (
             validated_data['unit_price'] * validated_data['quantity']
         )
-        validated_data['added_at'] = datetime.utcnow()
-        validated_data['updated_at'] = datetime.utcnow()
+        validated_data['added_at'] = timezone.now()
+        validated_data['updated_at'] = timezone.now()
         return CartItem.objects.create(**validated_data)
 
     def update(self, instance, validated_data):
         for key, value in validated_data.items():
             setattr(instance, key, value)
         instance.total_price = instance.unit_price * instance.quantity
-        instance.updated_at = datetime.utcnow()
+        instance.updated_at = timezone.now()
         instance.save()
         return instance
 
@@ -52,6 +52,6 @@ class CartSerializer(serializers.Serializer):
         validated_data['cart_id'] = uuid.uuid4()
         validated_data['item_count'] = 0
         validated_data['subtotal'] = 0
-        validated_data['created_at'] = datetime.utcnow()
-        validated_data['updated_at'] = datetime.utcnow()
+        validated_data['created_at'] = timezone.now()
+        validated_data['updated_at'] = timezone.now()
         return Cart.objects.create(**validated_data)

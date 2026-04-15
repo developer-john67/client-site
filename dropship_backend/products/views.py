@@ -20,7 +20,7 @@ def is_admin(user_id):
             return True
     except AttributeError:
         pass
-    # Handle Cassandra user_id UUID
+    # Handle user_id UUID
     try:
         from users.models import User
         user = User.objects.get(user_id=user_id)
@@ -200,7 +200,7 @@ def admin_products(request):
 
 
 @api_view(['GET', 'PUT', 'DELETE'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([permissions.AllowAny])
 def admin_product_detail(request, product_id):
     if not is_admin(request.user):
         return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)

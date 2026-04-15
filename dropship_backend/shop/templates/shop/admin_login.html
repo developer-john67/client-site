@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Admin Login — DropShip</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📦</text></svg>">
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -156,7 +157,7 @@
       <div class="error-msg">{{ error }}</div>
     {% endif %}
 
-    <form method="post">
+    <form method="post" id="login-form">
       {% csrf_token %}
       <label for="username">Username</label>
       <input type="text" id="username" name="username" required autocomplete="username" />
@@ -167,19 +168,5 @@
       <button type="submit" class="btn">Sign In →</button>
     </form>
   </div>
-  <script src="/static/js/api.js"></script>
-<script>
-    document.getElementById('login-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const username = document.getElementById('username').value;
-        const password = document.getElementById('password').value;
-        try {
-            await Auth.login(username, password);
-            window.location.href = '/upload/';
-        } catch (err) {
-            document.getElementById('error').textContent = err.message;
-        }
-    });
-</script>
 </body>
 </html>

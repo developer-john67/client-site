@@ -1,97 +1,110 @@
-from cassandra.cqlengine import columns
-from django_cassandra_engine.models import DjangoCassandraModel
 import uuid
+from django.db import models
 from datetime import datetime
 
 
-class Order(DjangoCassandraModel):
-    __keyspace__ = 'dropship_keyspace'
-    __table_name__ = 'orders'
+class Order(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('processing', 'Processing'),
+        ('shipped', 'Shipped'),
+        ('delivered', 'Delivered'),
+        ('cancelled', 'Cancelled'),
+    ]
+    PAYMENT_STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('paid', 'Paid'),
+        ('failed', 'Failed'),
+        ('refunded', 'Refunded'),
+    ]
 
-    order_id = columns.UUID(primary_key=True, default=uuid.uuid4)
-    order_number = columns.Text(required=True, index=True)
-    user_id = columns.UUID(required=True, index=True)
+    order_id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    order_number = models.CharField(max_length=100, unique=True, db_index=True)
+    user_id = models.UUIDField(db_index=True)
 
-    status = columns.Text(default='pending')
-    payment_status = columns.Text(default='pending')
-    payment_method = columns.Text()
+    status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='pending')
+    payment_status = models.CharField(max_length=50, choices=PAYMENT_STATUS_CHOICES, default='pending')
+    payment_method = models.CharField(max_length=50, blank=True, default='')
 
-    subtotal = columns.Decimal(required=True)
-    shipping_cost = columns.Decimal(default=0)
-    tax_amount = columns.Decimal(default=0)
-    discount_amount = columns.Decimal(default=0)
-    total_amount = columns.Decimal(required=True)
+    subtotal = models.DecimalField(max_digits=10, decimal_places=2)
+    shipping_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    tax_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    discount_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    total_amount = models.DecimalField(max_digits=10, decimal_places=2)
 
-    shipping_address = columns.Map(key_type=columns.Text, value_type=columns.Text)
-    billing_address = columns.Map(key_type=columns.Text, value_type=columns.Text)
+    shipping_address = models.JSONField(default=dict)
+    billing_address = models.JSONField(default=dict)
 
-    shipping_method = columns.Text()
-    tracking_number = columns.Text()
-    estimated_delivery = columns.Date()
-    delivered_at = columns.DateTime()
+    shipping_method = models.CharField(max_length=100, blank=True, default='')
+    tracking_number = models.CharField(max_length=200, blank=True, default='')
+    estimated_delivery = models.DateField(null=True, blank=True)
+    delivered_at = models.DateTimeField(null=True, blank=True)
 
-    customer_email = columns.Text()
-    customer_name = columns.Text()
-    customer_phone = columns.Text()
+    customer_email = models.EmailField(blank=True, default='')
+    customer_name = models.CharField(max_length=200, blank=True, default='')
+    customer_phone = models.CharField(max_length=20, blank=True, default='')
 
-    customer_notes = columns.Text()
-    admin_notes = columns.Text()
+    customer_notes = models.TextField(blank=True, default='')
+    admin_notes = models.TextField(blank=True, default='')
 
-    transaction_id = columns.Text()
-    payment_details = columns.Map(key_type=columns.Text, value_type=columns.Text)
+    transaction_id = models.CharField(max_length=200, blank=True, default='')
+    payment_details = models.JSONField(default=dict)
 
-    item_count = columns.Integer(default=0)
-    order_items = columns.List(value_type=columns.Text)  # ✅ renamed from 'items'
+    item_count = models.IntegerField(default=0)
+    order_items = models.JSONField(default=list)
 
-    created_at = columns.DateTime(default=datetime.utcnow, index=True)
-    updated_at = columns.DateTime(default=datetime.utcnow)
-
-    class Meta:
-        get_pk_field = 'order_id'
-
-
-class OrderItem(DjangoCassandraModel):
-    __keyspace__ = 'dropship_keyspace'
-    __table_name__ = 'order_items'
-
-    order_item_id = columns.UUID(primary_key=True, default=uuid.uuid4)
-    order_id = columns.UUID(required=True, index=True)
-    order_number = columns.Text()
-
-    product_id = columns.UUID(index=True)
-    product_name = columns.Text(required=True)
-    product_sku = columns.Text()
-    product_image = columns.Text()
-
-    variant_id = columns.UUID()
-    variant_name = columns.Text()
-    variant_info = columns.Map(key_type=columns.Text, value_type=columns.Text)
-
-    unit_price = columns.Decimal(required=True)
-    quantity = columns.Integer(required=True)
-    discount = columns.Decimal(default=0)
-    total_price = columns.Decimal(required=True)
-
-    created_at = columns.DateTime(default=datetime.utcnow, index=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        get_pk_field = 'order_item_id'
+        db_table = 'orders'
+
+    def __str__(self):
+        return f"Order {self.order_number}"
 
 
-class OrderStatusHistory(DjangoCassandraModel):
-    __keyspace__ = 'dropship_keyspace'
-    __table_name__ = 'order_status_history'
+class OrderItem(models.Model):
+    order_item_id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items', db_index=True)
+    order_number = models.CharField(max_length=100, blank=True, default='')
 
-    history_id = columns.UUID(primary_key=True, default=uuid.uuid4)
-    order_id = columns.UUID(required=True, index=True)
-    order_number = columns.Text()
+    product_id = models.UUIDField(db_index=True, null=True, blank=True)
+    product_name = models.CharField(max_length=255)
+    product_sku = models.CharField(max_length=100, blank=True, default='')
+    product_image = models.TextField(blank=True, default='')
 
-    status = columns.Text(required=True)
-    note = columns.Text()
-    changed_by = columns.UUID()
-    changed_by_name = columns.Text()
+    variant_id = models.UUIDField(null=True, blank=True)
+    variant_name = models.CharField(max_length=200, blank=True, default='')
+    variant_info = models.JSONField(default=dict)
 
-    created_at = columns.DateTime(default=datetime.utcnow, index=True)
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2)
+    quantity = models.IntegerField()
+    discount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    total_price = models.DecimalField(max_digits=10, decimal_places=2)
+
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
 
     class Meta:
-        get_pk_field = 'history_id'
+        db_table = 'order_items'
+
+    def __str__(self):
+        return f"{self.product_name} x{self.quantity}"
+
+
+class OrderStatusHistory(models.Model):
+    history_id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='status_history', db_index=True)
+    order_number = models.CharField(max_length=100, blank=True, default='')
+
+    status = models.CharField(max_length=50)
+    note = models.TextField(blank=True, default='')
+    changed_by = models.UUIDField(null=True, blank=True)
+    changed_by_name = models.CharField(max_length=200, blank=True, default='')
+
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        db_table = 'order_status_history'
+
+    def __str__(self):
+        return f"Order {self.order_number} - {self.status}"

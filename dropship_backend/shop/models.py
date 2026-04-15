@@ -1,25 +1,21 @@
 import uuid
-from cassandra.cqlengine import columns
-from django_cassandra_engine.models import DjangoCassandraModel
+from django.db import models
 
 
-class Product(DjangoCassandraModel):
-    """Product model stored in CassandraDB."""
+class Product(models.Model):
+    product_id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=255, db_index=True)
+    description = models.TextField(default='')
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+    category = models.CharField(max_length=100, db_index=True)
+    stock_quantity = models.IntegerField(default=0)
+    image_url = models.TextField(default='')
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        get_pk_field = 'product_id'
-        app_label = 'shop'
-
-    product_id = columns.UUID(primary_key=True, default=uuid.uuid4)
-    name = columns.Text(required=True, index=True)
-    description = columns.Text(default='')
-    price = columns.Decimal(required=True)
-    category = columns.Text(required=True, index=True)
-    stock_quantity = columns.Integer(default=0)
-    image_url = columns.Text(default='')      # Store image path/URL as text
-    is_active = columns.Boolean(default=True)
-    created_at = columns.DateTime()
-    updated_at = columns.DateTime()
+        db_table = 'shop_products'
 
     def __str__(self):
         return self.name

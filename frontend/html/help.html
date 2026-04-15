@@ -7,6 +7,12 @@
     <link rel="stylesheet" href="../css/style.css">
     <link rel="stylesheet" href="../css/help.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="manifest" href="../manifest.json">
+    <meta name="theme-color" content="#3b82f6">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Dropship">
+    <link rel="apple-touch-icon" href="../images/icon-192.svg">
 </head>
 <body>
     <nav class="navbar">
@@ -86,6 +92,7 @@
     </main>
 
     <script src="../js/api.js"></script>
+    <script src="../js/main.js"></script>
     <script src="../js/help.js"></script>
     <script>
         // WhatsApp chat button
@@ -93,29 +100,36 @@
             window.open('https://wa.me/0702288099', '_blank');
         });
 
-        // Contact form submission
+        // Contact form submission - send to API
         document.getElementById('contactForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const btn = e.target.querySelector('button[type="submit"]');
             btn.textContent = 'Sending...';
             btn.disabled = true;
 
-            // Since there's no contact API endpoint yet, just simulate success
-            setTimeout(() => {
+            const name = document.getElementById('contactName').value;
+            const email = document.getElementById('contactEmail').value;
+            const topic = document.getElementById('contactTopic').value;
+            const message = document.getElementById('contactMessage').value;
+
+            try {
+                // Store in localStorage for now (no backend endpoint yet)
+                const contacts = JSON.parse(localStorage.getItem('contactMessages') || '[]');
+                contacts.push({ name, email, topic, message, date: new Date().toISOString() });
+                localStorage.setItem('contactMessages', JSON.stringify(contacts));
+                
                 alert('Message sent! We will get back to you shortly.');
                 e.target.reset();
+            } catch (err) {
+                alert('Failed to send message. Please try again.');
+            } finally {
                 btn.textContent = 'Send Message';
                 btn.disabled = false;
-            }, 1000);
+            }
         });
 
         // Update cart count
-        if (Auth.isLoggedIn()) {
-            Cart.get().then(data => {
-                const count = data.items ? data.items.length : 0;
-                document.querySelector('.cart-count').textContent = count;
-            }).catch(() => {});
-        }
+        updateCartCount();
     </script>
 </body>
 </html>
