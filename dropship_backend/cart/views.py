@@ -165,57 +165,57 @@ def add_to_cart(request):
         unit_price = float(unit_price)
         quantity   = int(request.data.get('quantity', 1))
 
-    # ── Check if item already exists in cart ──────────────────────────────────
-    existing_items = list(CartItem.objects.filter(
-        cart_id    = cart.cart_id,
-        product_id = product_id,
-    ))
+        # ── Check if item already exists in cart ──────────────────────────────────
+        existing_items = list(CartItem.objects.filter(
+            cart_id    = cart.cart_id,
+            product_id = product_id,
+        ))
 
-    existing = None
-    if variant_id:
-        existing = next((i for i in existing_items if str(i.variant_id) == str(variant_id)), None)
-    else:
-        existing = existing_items[0] if existing_items else None
-
-    if existing:
-        existing.quantity    += quantity
-        existing.total_price  = existing.unit_price * existing.quantity
-        existing.updated_at   = timezone.now()
-        existing.save()
-    else:
-        # Convert UUIDs to strings for serializer, omit None values
-        item_data = {
-            'cart_id':       str(cart.cart_id),
-            'product_id':    str(product_id),
-            'product_name':  product_name,
-            'product_image': product_image or '',
-            'product_slug':  product_slug or '',
-            'variant_name':  request.data.get('variant_name', ''),
-            'unit_price':    str(unit_price),
-            'quantity':      quantity,
-        }
-        # Only include variant_id if it exists
+        existing = None
         if variant_id:
-            item_data['variant_id'] = str(variant_id)
+            existing = next((i for i in existing_items if str(i.variant_id) == str(variant_id)), None)
+        else:
+            existing = existing_items[0] if existing_items else None
 
-        serializer = CartItemSerializer(data=item_data)
-        if not serializer.is_valid():
-            # Return detailed errors to help debug
-            return Response(
-                {'error': 'Validation failed', 'details': serializer.errors},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        serializer.save()
+        if existing:
+            existing.quantity    += quantity
+            existing.total_price  = existing.unit_price * existing.quantity
+            existing.updated_at   = timezone.now()
+            existing.save()
+        else:
+            # Convert UUIDs to strings for serializer, omit None values
+            item_data = {
+                'cart_id':       str(cart.cart_id),
+                'product_id':    str(product_id),
+                'product_name':  product_name,
+                'product_image': product_image or '',
+                'product_slug':  product_slug or '',
+                'variant_name':  request.data.get('variant_name', ''),
+                'unit_price':    str(unit_price),
+                'quantity':      quantity,
+            }
+            # Only include variant_id if it exists
+            if variant_id:
+                item_data['variant_id'] = str(variant_id)
 
-    recalculate_cart(cart)
+            serializer = CartItemSerializer(data=item_data)
+            if not serializer.is_valid():
+                # Return detailed errors to help debug
+                return Response(
+                    {'error': 'Validation failed', 'details': serializer.errors},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            serializer.save()
 
-    cart_items = list(CartItem.objects.filter(cart_id=cart.cart_id))
-    cart_data  = CartSerializer(cart).data
-    cart_data['cart_items'] = CartItemSerializer(cart_items, many=True).data
-    
-    print(f"[DEBUG] add_to_cart - cart_id: {cart.cart_id}, user_id: {cart.user_id}, session_id: {cart.session_id}, items_count: {len(cart_items)}")
+        recalculate_cart(cart)
 
-    return Response(cart_data, status=status.HTTP_200_OK)
+        cart_items = list(CartItem.objects.filter(cart_id=cart.cart_id))
+        cart_data  = CartSerializer(cart).data
+        cart_data['cart_items'] = CartItemSerializer(cart_items, many=True).data
+        
+        print(f"[DEBUG] add_to_cart - cart_id: {cart.cart_id}, user_id: {cart.user_id}, session_id: {cart.session_id}, items_count: {len(cart_items)}")
+
+        return Response(cart_data, status=status.HTTP_200_OK)
 
 
 @api_view(['PUT'])
