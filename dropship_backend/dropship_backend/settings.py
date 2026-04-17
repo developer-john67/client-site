@@ -169,7 +169,11 @@ if os.getenv('AWS_STORAGE_BUCKET_NAME'):
 else:
     DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
     MEDIA_URL = '/media/'
-    MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+    # Use persistent disk on Render, otherwise local
+    if os.path.exists('/opt/render/project/src/media'):
+        MEDIA_ROOT = '/opt/render/project/src/media'
+    else:
+        MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 
 LOGIN_URL = '/admin-login/'
