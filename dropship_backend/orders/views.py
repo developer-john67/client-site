@@ -352,20 +352,43 @@ def check_mpesa_payment(request):
         from payments.mpesa import check_payment_status
         result = check_payment_status(checkout_request_id)
         
-        return Response({
-            'success': result.get('success', False),
-            'payment_status': result.get('status', 'unknown'),
-            'checkout_request_id': checkout_request_id,
-            'transaction_id': result.get('transaction_id'),
-            'amount': result.get('amount'),
-            'phone': result.get('phone'),
-            'mpesa_receipt': result.get('mpesa_receipt'),
-            'created_at': result.get('created_at')
-        })
+        payment_status = result.get('payment_status', result.get('status', 'unknown'))
+        
+        if result.get('success') and payment_status in ('completed', 'success', 'paid'):
+            return Response({
+                'success': True,
+                'payment_status': 'completed',
+                'checkout_request_id': checkout_request_id,
+                'transaction_id': result.get('transaction_id'),
+                'amount': result.get('amount'),
+                'phone': result.get('phone'),
+                'mpesa_receipt': result.get('mpesa_receipt'),
+                'created_at': result.get('created_at')
+            })
+        elif result.get('success'):
+            return Response({
+                'success': True,
+                'payment_status': 'pending',
+                'checkout_request_id': checkout_request_id,
+                'transaction_id': result.get('transaction_id'),
+                'amount': result.get('amount'),
+                'phone': result.get('phone'),
+            })
+        else:
+            return Response({
+                'success': False,
+                'payment_status': 'failed',
+                'error': result.get('error', 'Payment check failed'),
+                'checkout_request_id': checkout_request_id,
+            })
         
     except Exception as e:
         logger.error(f"M-Pesa query error: {str(e)}")
-        return Response({'error': 'Payment status check failed'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        return Response({
+            'success': False,
+            'payment_status': 'failed',
+            'error': 'Payment status check unavailable'
+        }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
 
 @api_view(['POST'])

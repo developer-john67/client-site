@@ -292,14 +292,21 @@ def check_payment_status(checkout_request_id):
     daraja = DarajaService()
     result = daraja.check_transaction(checkout_request_id)
 
-    if result.get('success'):
-        status = result.get('status', 'unknown')
+    status = result.get('status', 'unknown')
+    is_success = result.get('success', False)
+    
+    if is_success:
+        db_status = MpesaTransaction.Status.COMPLETED if status == 'completed' else MpesaTransaction.Status.PENDING
         MpesaTransaction.objects.filter(
             checkout_request_id=checkout_request_id
         ).update(
-            status=MpesaTransaction.Status.COMPLETED if status == 'completed' else MpesaTransaction.Status.PENDING,
+            status=db_status,
             mpesa_receipt=result.get('transaction_id', ''),
         )
-        result['payment_status'] = 'completed' if status == 'completed' else status
+    
+    result['payment_status'] = 'completed' if status == 'completed' else ('pending' if status == 'pending' else 'failed')
+    
+    if not is_success:
+        result['payment_status'] = 'failed'
 
     return result
