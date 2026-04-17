@@ -2,6 +2,7 @@
 Django settings for dropship_backend project.
 """
 import os
+import dj_database_url
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -93,21 +94,36 @@ WSGI_APPLICATION = 'dropship_backend.wsgi.application'
 
 
 # ─── Database ─────────────────────────────────────────────────────────────────
+# Render provides a DATABASE_URL environment variable.
+# Falls back to individual DB_* variables for local development.
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('DB_NAME', 'dropship_db'),
-        'USER': os.getenv('DB_USER', 'postgres'),
-        'PASSWORD': os.getenv('DB_PASSWORD', '_aecj@20Un#'),
-        'HOST': os.getenv('DB_HOST', 'localhost'),
-        'PORT': os.getenv('DB_PORT', '5432'),
-        'CONN_MAX_AGE': 60,
-        'OPTIONS': {
-            'sslmode': os.getenv('DB_SSL_MODE', 'prefer'),
-        },
+DATABASE_URL = os.getenv('DATABASE_URL')
+
+if DATABASE_URL:
+    #/ production: use DATABASE_URL directly
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=DATABASE_URL,
+            conn_max_age=60,
+            ssl_require=not DEBUG,  # enforce SSL in production
+        )
     }
-}
+else:
+    # ✅ Local development: use individual DB_* variables
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.getenv('DB_NAME', 'dropship_db'),
+            'USER': os.getenv('DB_USER', 'postgres'),
+            'PASSWORD': os.getenv('DB_PASSWORD', '_aecj@20Un#'),
+            'HOST': os.getenv('DB_HOST', 'localhost'),
+            'PORT': os.getenv('DB_PORT', '5432'),
+            'CONN_MAX_AGE': 60,
+            'OPTIONS': {
+                'sslmode': os.getenv('DB_SSL_MODE', 'prefer'),
+            },
+        }
+    }
 
 
 # ─── Password Validation ──────────────────────────────────────────────────────
@@ -141,6 +157,12 @@ MEDIA_ROOT = os.path.join(BASE_DIR / 'media')
 LOGIN_URL = '/admin-login/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+AUTH_USER_MODEL = 'users.User'
+
+AUTHENTICATION_BACKENDS = [
+    'users.backends.EmailBackend',
+]
 
 
 # ─── CORS ─────────────────────────────────────────────────────────────────────
@@ -186,13 +208,10 @@ SESSION_COOKIE_SAMESITE = 'Lax'
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        # TokenAuthentication first — no CSRF required
         'rest_framework.authentication.TokenAuthentication',
-        # SessionAuthentication last — only for admin/browsable API
         'rest_framework.authentication.SessionAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
-        # Individual views override this as needed
         'rest_framework.permissions.IsAuthenticatedOrReadOnly',
     ],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
@@ -236,7 +255,7 @@ RATELIMIT_DEFAULT = '100/hour'
 RATELIMIT_AUTHENTICATED = '200/hour'
 
 
-# ─── Logging ────────────────────────────────────────────────────────────────────
+# ─── Logging ─────────────────────────────────────────────────────────────────
 
 LOGGING = {
     'version': 1,
@@ -281,9 +300,8 @@ SECURITY_MIDDLEWARE = [
 ]
 
 
-# ─── Email Configuration ───────────────────────────────────────────────────────
+# ─── Email Configuration ──────────────────────────────────────────────────────
 
-# CHANGED: Use smtp backend always; override in .env to console for local debugging
 EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')
 EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
 EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
@@ -291,11 +309,10 @@ EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True').lower() in ('true', '1', 'yes
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'johnantony1047@gmail.com')
-# CHANGED: Was pointing to port 8000 (backend). Frontend runs on 3000.
 FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000')
 
 
-# ─── M-Pesa Configuration (Daraja API) ───────────────────────────────────────────
+# ─── M-Pesa Configuration (Daraja API) ───────────────────────────────────────
 
 LIPANA_API_KEY = os.getenv('LIPANA_API_KEY', '')
 LIPANA_ENV = os.getenv('LIPANA_ENV', 'sandbox')

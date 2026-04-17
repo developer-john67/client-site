@@ -102,66 +102,68 @@ def get_cart(request):
 def add_to_cart(request):
     """Add an item to cart"""
     import sys
-    print("=" * 50, file=sys.stderr)
-    print("[DEBUG] add_to_cart called", file=sys.stderr)
-    print(f"[DEBUG] Authorization: {request.headers.get('Authorization', 'NONE')[:50]}", file=sys.stderr)
-    print(f"[DEBUG] Data: {dict(request.data)}", file=sys.stderr)
-    print("=" * 50, file=sys.stderr)
     
-    user       = get_user_from_token(request)
-    session_id = request.headers.get('X-Session-ID', '')
-    user_id    = user.user_id if user else None
-    
-    print(f"[DEBUG] user: {user}, user_id: {user_id}, session_id: '{session_id}'")
-    
-    cart       = get_or_create_cart(user_id=user_id, session_id=session_id)
-    print(f"[DEBUG] cart created/retrieved: {cart.cart_id}, user_id: {cart.user_id}, session_id: {cart.session_id}")
+    try:
+        print("=" * 50, file=sys.stderr)
+        print("[DEBUG] add_to_cart called", file=sys.stderr)
+        print(f"[DEBUG] Authorization: {request.headers.get('Authorization', 'NONE')[:50]}", file=sys.stderr)
+        print(f"[DEBUG] Data: {dict(request.data)}", file=sys.stderr)
+        print("=" * 50, file=sys.stderr)
+        
+        user       = get_user_from_token(request)
+        session_id = request.headers.get('X-Session-ID', '')
+        user_id    = user.user_id if user else None
+        
+        print(f"[DEBUG] user: {user}, user_id: {user_id}, session_id: '{session_id}'")
+        
+        cart       = get_or_create_cart(user_id=user_id, session_id=session_id)
+        print(f"[DEBUG] cart created/retrieved: {cart.cart_id}, user_id: {cart.user_id}, session_id: {cart.session_id}")
 
-    product_id_raw = request.data.get('product_id')
-    variant_id_raw = request.data.get('variant_id')
+        product_id_raw = request.data.get('product_id')
+        variant_id_raw = request.data.get('variant_id')
 
-    if not product_id_raw:
-        return Response({'error': 'product_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+        if not product_id_raw:
+            return Response({'error': 'product_id is required'}, status=status.HTTP_400_BAD_REQUEST)
 
-    # ── Validate product_id ───────────────────────────────────────────────────
-    product_id = parse_uuid(product_id_raw)
-    if not product_id:
-        return Response(
-            {'error': f'Invalid product_id format: {product_id_raw}'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-
-    variant_id = parse_uuid(variant_id_raw)
-
-    # ── Fetch product from database to get name/price ────────────────────────
-    product_name  = request.data.get('product_name', '')
-    product_image = request.data.get('product_image', '')
-    product_slug  = request.data.get('product_slug', '')
-    unit_price    = request.data.get('unit_price')
-
-    if not unit_price or not product_name:
-        try:
-            from products.models import Product
-            products = list(Product.objects.filter(product_id=product_id))
-            if products:
-                p             = products[0]
-                product_name  = product_name  or p.name
-                product_image = product_image or p.main_image or ''
-                product_slug  = product_slug  or p.slug or ''
-                unit_price    = unit_price    or float(p.price)
-            else:
-                return Response(
-                    {'error': 'Product not found'},
-                    status=status.HTTP_404_NOT_FOUND
-                )
-        except Exception as e:
+        # ── Validate product_id ───────────────────────────────────────────────────
+        product_id = parse_uuid(product_id_raw)
+        if not product_id:
             return Response(
-                {'error': f'Could not fetch product details: {str(e)}'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {'error': f'Invalid product_id format: {product_id_raw}'},
+                status=status.HTTP_400_BAD_REQUEST
             )
 
-    unit_price = float(unit_price)
-    quantity   = int(request.data.get('quantity', 1))
+        variant_id = parse_uuid(variant_id_raw)
+
+# ── Fetch product from database to get name/price ────────────────────────
+        product_name  = request.data.get('product_name', '')
+        product_image = request.data.get('product_image', '')
+        product_slug  = request.data.get('product_slug', '')
+        unit_price    = request.data.get('unit_price')
+
+        if not unit_price or not product_name:
+            try:
+                from products.models import Product
+                products = list(Product.objects.filter(product_id=product_id))
+                if products:
+                    p             = products[0]
+                    product_name  = product_name  or p.name
+                    product_image = product_image or p.main_image or ''
+                    product_slug  = product_slug  or p.slug or ''
+                    unit_price    = unit_price    or float(p.price)
+                else:
+                    return Response(
+                        {'error': 'Product not found'},
+                        status=status.HTTP_404_NOT_FOUND
+                    )
+            except Exception as e:
+                return Response(
+                    {'error': f'Could not fetch product details: {str(e)}'},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+
+        unit_price = float(unit_price)
+        quantity   = int(request.data.get('quantity', 1))
 
     # ── Check if item already exists in cart ──────────────────────────────────
     existing_items = list(CartItem.objects.filter(

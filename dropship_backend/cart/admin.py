@@ -12,7 +12,9 @@ class CartItemInline(admin.TabularInline):
 
 @admin.register(Cart)
 class CartAdmin(admin.ModelAdmin):
-    list_display = ('cart_id', 'user_id', 'item_count', 'subtotal', 'created_at')
+    list_display = ('cart_id', 'user_id', 'session_id', 'item_count', 'subtotal', 'created_at', 'updated_at')
+    list_filter = ('created_at',)
+    search_fields = ('cart_id', 'user_id', 'session_id')
     readonly_fields = ('cart_id', 'created_at', 'updated_at')
 
 

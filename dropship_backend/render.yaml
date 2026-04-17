@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: dropship-backend
+    env: python
+    buildCommand: ./build.sh
+    startCommand: gunicorn dropship_backend.asgi:application --workers 4 --bind 0.0.0.0:$PORT
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: dropship-db
+          property: connection_string
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "False"
+      - key: ALLOWED_HOSTS
+        value: "*.render.com"
+      - key: EMAIL_BACKEND
+        value: "django.core.mail.backends.console.EmailBackend"
+      - key: DEFAULT_FROM_EMAIL
+        value: "noreply@dropship.com"
+      - key: FRONTEND_URL
+        value: "https://your-frontend.onrender.com"
+
+  - type: psql
+    name: dropship-db
+    plan: free

@@ -142,8 +142,15 @@ def admin_login(request):
     if request.method == 'POST':
         username = request.POST.get('username')
         password = request.POST.get('password')
-        user = authenticate(request, username=username, password=password)
-        if user and is_admin(user):
+        
+        from users.models import User
+        
+        # Try username first, then email
+        user = User.objects.filter(username=username).first()
+        if not user:
+            user = User.objects.filter(email=username).first()
+        
+        if user and user.check_password(password) and is_admin(user):
             login(request, user)
             return redirect('product_upload')
         else:

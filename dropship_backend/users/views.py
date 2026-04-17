@@ -3,9 +3,6 @@
 from rest_framework import status, permissions
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework.response import Response
-from rest_framework.authentication import TokenAuthentication
-import uuid
-import hashlib
 import secrets
 import re
 from django.utils import timezone
@@ -16,18 +13,6 @@ from verification.models import EmailVerification
 
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
-
-def hash_password(password):
-    import os
-    salt = os.urandom(32).hex()
-    password_hash = hashlib.sha256((password + salt).encode()).hexdigest()
-    return f"{salt}${password_hash}"
-
-
-def verify_password(password, stored_hash):
-    salt, hashed = stored_hash.split('$', 1)
-    return hashlib.sha256((password + salt).encode()).hexdigest() == hashed
-
 
 def get_user_from_token(request):
     """Extract user from session token in Authorization header."""
@@ -42,7 +27,7 @@ def get_user_from_token(request):
         if session.expires_at < timezone.now():
             session.delete()
             return None
-        return session.user  # ✅ FIX: use FK accessor, not user_id lookup
+        return session.user
     except Exception:
         return None
 
@@ -54,75 +39,82 @@ def get_user_from_token(request):
 @permission_classes([permissions.AllowAny])
 def register(request):
     """Register a new user — requires email verification before login."""
-    username = request.data.get('username', '').strip()
-    email    = request.data.get('email', '').strip()
-    password = request.data.get('password', '')
-
-    if not username:
-        return Response({'error': 'Username is required.'}, status=status.HTTP_400_BAD_REQUEST)
-    if not email:
-        return Response({'error': 'Email is required.'}, status=status.HTTP_400_BAD_REQUEST)
-    if not password:
-        return Response({'error': 'Password is required.'}, status=status.HTTP_400_BAD_REQUEST)
-
-    if not re.match(r'^[^\s@]+@[^\s@]+\.[^\s@]+$', email):
-        return Response({'error': 'Please enter a valid email address.'}, status=status.HTTP_400_BAD_REQUEST)
-
-    if len(password) < 8:
-        return Response({'error': 'Password must be at least 8 characters.'}, status=status.HTTP_400_BAD_REQUEST)
-
-    # If email exists but is unverified, delete and allow re-registration
-    existing_user = User.objects.filter(email=email).first()
-    if existing_user:
-        if existing_user.email_verified:
-            return Response({'error': 'Email already registered.'}, status=status.HTTP_400_BAD_REQUEST)
-        else:
-            existing_user.delete()
-
-    if User.objects.filter(username=username).exists():
-        return Response({'error': 'Username already taken.'}, status=status.HTTP_400_BAD_REQUEST)
-
-    # Create user — blocked from login until email verified
-    user = User.objects.create(
-        username=username,
-        email=email,
-        password_hash=hash_password(password),
-        is_active=True,
-        email_verified=False,
-    )
-
-    # Generate and store verification code
-    from verification.email_service import generate_6digit_code, send_verification_email
-
-    EmailVerification.objects.filter(email=email, is_verified=False).delete()
-
-    code = generate_6digit_code()
-    expires_at = timezone.now() + timedelta(minutes=15)
-
-    EmailVerification.objects.create(
-        email=email,
-        code=code,
-        purpose='email_verify',
-        user_id=user.user_id,
-        expires_at=expires_at,
-    )
-
-    send_verification_email(email, code, 'email_verify')
-
     import sys
-    print(f"[REGISTER] Verification email sent to {email}", file=sys.stderr, flush=True)
+    
+    try:
+        username = request.data.get('username', '').strip()
+        email    = request.data.get('email', '').strip()
+        password = request.data.get('password', '')
 
-    return Response(
-        {
-            'message': 'Registration successful. Please check your email for the verification code.',
-            'user_id': str(user.user_id),
-            'email': user.email,
-            'username': user.username,
-            'email_verified': False,
-            'verification_required': True,
-        },
-        status=status.HTTP_201_CREATED,
-    )
+        if not username:
+            return Response({'error': 'Username is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not email:
+            return Response({'error': 'Email is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not password:
+            return Response({'error': 'Password is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not re.match(r'^[^\s@]+@[^\s@]+\.[^\s@]+$', email):
+            return Response({'error': 'Please enter a valid email address.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if len(password) < 8:
+            return Response({'error': 'Password must be at least 8 characters.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # If email exists but is unverified, delete and allow re-registration
+        existing_user = User.objects.filter(email=email).first()
+        if existing_user:
+            if existing_user.email_verified:
+                return Response({'error': 'Email already registered.'}, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                existing_user.delete()
+
+        if User.objects.filter(username=username).exists():
+            return Response({'error': 'Username already taken.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Use create_user — handles password hashing automatically
+        user = User.objects.create_user(
+            username=username,
+            email=email,
+            password=password,
+            is_active=True,
+            email_verified=False,
+        )
+
+        from verification.email_service import generate_6digit_code, send_verification_email
+
+        EmailVerification.objects.filter(email=email, is_verified=False).delete()
+
+        code = generate_6digit_code()
+        expires_at = timezone.now() + timedelta(minutes=15)
+
+        EmailVerification.objects.create(
+            email=email,
+            code=code,
+            purpose='email_verify',
+            user=user,
+            expires_at=expires_at,
+        )
+
+        # Send email in background (won't block on errors)
+        try:
+            send_verification_email(email, code, 'email_verify')
+            print(f"[REGISTER] Verification email sent to {email}", file=sys.stderr, flush=True)
+        except Exception as email_err:
+            print(f"[REGISTER] Email sending failed: {email_err}", file=sys.stderr, flush=True)
+
+        return Response(
+            {
+                'message': 'Registration successful. Please check your email for the verification code.',
+                'user_id': str(user.user_id),
+                'email': user.email,
+                'username': user.username,
+                'email_verified': False,
+                'verification_required': True,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+    except Exception as e:
+        print(f"[REGISTER] Error: {e}", file=sys.stderr, flush=True)
+        return Response({'error': 'Registration failed. Please try again.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['POST'])
@@ -150,13 +142,13 @@ def login(request):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        if not verify_password(password, user.password_hash):
+        # ✅ Use Django's check_password instead of custom verify_password
+        if not user.check_password(password):
             return Response({'error': 'Invalid email or password.'}, status=status.HTTP_401_UNAUTHORIZED)
 
         token      = secrets.token_hex(32)
         expires_at = timezone.now() + timedelta(days=7)
 
-        # ✅ FIX: use user=user (FK), not user_id=user.user_id
         UserSession.objects.create(
             user=user,
             token=token,
@@ -268,7 +260,6 @@ def resend_verification(request):
     code       = generate_6digit_code()
     expires_at = timezone.now() + timedelta(minutes=15)
 
-    # ✅ FIX: use user=user (FK), not user_id=user.user_id
     EmailVerification.objects.create(
         email=email,
         code=code,
@@ -322,6 +313,7 @@ def update_profile(request):
 @authentication_classes([])
 @permission_classes([permissions.AllowAny])
 def change_password(request):
+    """Change user password."""
     user = get_user_from_token(request)
     if not user:
         return Response({'error': 'Unauthorized. Please log in.'}, status=status.HTTP_401_UNAUTHORIZED)
@@ -332,13 +324,15 @@ def change_password(request):
     if not old_password or not new_password:
         return Response({'error': 'old_password and new_password are required.'}, status=status.HTTP_400_BAD_REQUEST)
 
-    if not verify_password(old_password, user.password_hash):
+    # ✅ Use Django's check_password instead of custom verify_password
+    if not user.check_password(old_password):
         return Response({'error': 'Current password is incorrect.'}, status=status.HTTP_400_BAD_REQUEST)
 
     if len(new_password) < 8:
         return Response({'error': 'New password must be at least 8 characters.'}, status=status.HTTP_400_BAD_REQUEST)
 
-    user.password_hash = hash_password(new_password)
+    # ✅ Use Django's set_password instead of custom hash_password
+    user.set_password(new_password)
     user.save()
 
     return Response({'message': 'Password changed successfully.'})

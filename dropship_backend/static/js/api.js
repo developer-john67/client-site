@@ -1,5 +1,7 @@
-const API_BASE = 'http://localhost:8000/api';
-
+/**const API_BASE = 'http://localhost:8000/api';**/
+const API_BASE = window.location.hostname === 'localhost'
+    ? 'http://localhost:8000/api'
+    : 'https://dropship-backend-otgc.onrender.com/api';
 function getCSRFToken() {
   const cookie = document.cookie.split(';').find(c => c.trim().startsWith('csrftoken='));
   return cookie ? cookie.split('=')[1] : '';

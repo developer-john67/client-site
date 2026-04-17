@@ -98,7 +98,10 @@ class ProductSerializer(serializers.Serializer):
             if obj.main_image.startswith('http'):
                 return obj.main_image
             if obj.main_image.startswith('/'):
-                return f"http://localhost:8000{obj.main_image}"
+                request = self.context.get('request')
+                if request:
+                    return request.build_absolute_uri(obj.main_image)
+                return f"{MEDIA_BASE_URL}{obj.main_image}"
             return f"{MEDIA_BASE_URL}{obj.main_image}"
         return None
 

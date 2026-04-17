@@ -1,0 +1,5 @@
+# Netlify SPA redirect
+/*    /html/index.html   200
+
+# API proxy to backend (if needed)
+/api/*  https://your-render-backend.onrender.com/api/:splat  200

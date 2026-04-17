@@ -8,6 +8,8 @@ from .models import Order, OrderItem, OrderStatusHistory
 class OrderAdmin(admin.ModelAdmin):
     list_display = ('order_id', 'order_number', 'user_id', 'status',
                     'payment_status', 'total_amount', 'created_at')
+    list_filter = ('status', 'payment_status', 'created_at')
+    search_fields = ('order_id', 'order_number', 'user_id', 'shipping_email')
     readonly_fields = ('order_id', 'order_number', 'created_at', 'updated_at')
 
 

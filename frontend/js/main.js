@@ -202,6 +202,11 @@ function updateNav() {
     }
 }
 
+function handleLogout() {
+    Auth.logout();
+    window.location.href = 'index.html';
+}
+
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', () => {

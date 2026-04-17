@@ -16,16 +16,49 @@
 <body>
     <nav class="navbar">
         <div class="nav-container">
+            <div class="hamburger" id="hamburger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
             <div class="logo">
                 <img src="../images/logo.svg" alt="Dropship Logo">
                 <span>Dropship</span>
             </div>
+            <div class="mobile-search">
+                <input type="text" id="mobileSearchInput" placeholder="Search products..." autocomplete="off">
+            </div>
             <ul class="nav-menu">
                 <li><a href="index.html">Home</a></li>
-                <li><a href="#">Categories</a></li>
+                <li class="dropdown">
+                    <a href="#">Categories <i class="fas fa-chevron-down"></i></a>
+                    <ul class="dropdown-menu">
+                        <li><a href="products.html?category=electronics"><i class="fas fa-laptop"></i> Electronics</a></li>
+                        <li><a href="products.html?category=sports-outdoor"><i class="fas fa-football-ball"></i> Sports &amp; Outdoor</a></li>
+                        <li><a href="products.html?category=home-garden"><i class="fas fa-home"></i> Home &amp; Garden</a></li>
+                        <li><a href="products.html?category=clothing-apparel"><i class="fas fa-tshirt"></i> Clothing &amp; Apparel</a></li>
+                        <li><a href="products.html?category=games-toys"><i class="fas fa-gamepad"></i> Games &amp; Toys</a></li>
+                        <li><a href="products.html?category=beauty-health"><i class="fas fa-spa"></i> Beauty &amp; Health</a></li>
+                        <li><a href="products.html?category=automotive"><i class="fas fa-car"></i> Automotive</a></li>
+                        <li><a href="products.html?category=books-media"><i class="fas fa-book"></i> Books &amp; Media</a></li>
+                        <li><a href="products.html?category=food-groceries"><i class="fas fa-shopping-basket"></i> Food &amp; Groceries</a></li>
+                        <li><a href="products.html?category=other"><i class="fas fa-ellipsis-h"></i> Other</a></li>
+                    </ul>
+                </li>
                 <li><a href="help.html">Help</a></li>
                 <li><a href="account.html">Account</a></li>
             </ul>
+            <div class="nav-actions">
+                <div class="search-box">
+                    <input type="text" id="searchInput" placeholder="Search products..." autocomplete="off">
+                    <button type="button" id="searchBtn"><i class="fas fa-search"></i></button>
+                </div>
+                <a href="signup.html" class="btn-signup">Sign Up</a>
+                <a href="cart.html" class="cart-icon">
+                    <i class="fas fa-shopping-cart"></i>
+                    <span class="cart-count">0</span>
+                </a>
+            </div>
         </div>
     </nav>
 
@@ -49,6 +82,58 @@
     <script src="../js/api.js"></script>
     <script src="../js/main.js"></script>
     <script>
+        // Mobile menu toggle
+        const hamburger = document.getElementById('hamburger');
+        const navMenu = document.querySelector('.nav-menu');
+        
+        if (hamburger && navMenu) {
+            hamburger.addEventListener('click', () => {
+                hamburger.classList.toggle('active');
+                navMenu.classList.toggle('active');
+            });
+        }
+        
+        // Mobile dropdown toggle
+        const dropdowns = document.querySelectorAll('.dropdown');
+        dropdowns.forEach(dropdown => {
+            dropdown.addEventListener('click', (e) => {
+                if (window.innerWidth <= 1024) {
+                    e.preventDefault();
+                    dropdown.classList.toggle('active');
+                }
+            });
+        });
+        
+        // Search functionality
+        const searchInput = document.getElementById('searchInput');
+        const searchBtn = document.getElementById('searchBtn');
+        const mobileSearchInput = document.getElementById('mobileSearchInput');
+
+        function performSearch(query) {
+            if (query) {
+                window.location.href = 'products.html?search=' + encodeURIComponent(query);
+            }
+        }
+
+        if (searchBtn) {
+            searchBtn.addEventListener('click', () => performSearch(searchInput.value));
+        }
+        if (searchInput) {
+            searchInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') performSearch(searchInput.value);
+            });
+        }
+        if (mobileSearchInput) {
+            mobileSearchInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') performSearch(mobileSearchInput.value);
+            });
+        }
+        
+        function handleLogout() {
+            Auth.logout();
+            window.location.href = 'index.html';
+        }
+        
         // Redirect if already logged in
         if (Auth.isLoggedIn()) {
             window.location.href = 'account.html';
