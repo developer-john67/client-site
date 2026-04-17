@@ -135,6 +135,16 @@ function displayFeaturedProducts() {
 // ─── ADD TO CART ──────────────────────────────────────────────────────────────
 
 window.addToCart = function(productId, productName, productPrice) {
+    console.log('addToCart called:', productId, productName, productPrice);
+    console.log('Auth:', typeof Auth);
+    console.log('Cart:', typeof Cart);
+    
+    if (typeof Auth === 'undefined' || typeof Cart === 'undefined') {
+        console.error('Auth or Cart not loaded');
+        alert('Please refresh the page and try again.');
+        return;
+    }
+    
     if (Auth.isLoggedIn()) {
         Cart.addItem(productId, 1)
             .then(cartData => {
@@ -143,6 +153,7 @@ window.addToCart = function(productId, productName, productPrice) {
                 showBanner(`✓ ${productName} added to cart!`);
             })
             .catch(err => {
+                console.error('Cart error:', err);
                 showBanner(err.message || 'Failed to add to cart', 'error');
             });
         return;
