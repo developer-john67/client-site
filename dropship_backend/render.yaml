@@ -21,6 +21,12 @@ services:
         value: "noreply@dropship.com"
       - key: FRONTEND_URL
         value: "https://your-frontend.onrender.com"
+      - key: AWS_STORAGE_BUCKET_NAME
+        fromSecret: AWS_STORAGE_BUCKET_NAME
+      - key: AWS_ACCESS_KEY_ID
+        fromSecret: AWS_ACCESS_KEY_ID
+      - key: AWS_SECRET_ACCESS_KEY
+        fromSecret: AWS_SECRET_ACCESS_KEY
     disk:
       name: media-files
       mountPath: /opt/render/project/src/media
