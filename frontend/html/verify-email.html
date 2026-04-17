@@ -50,7 +50,9 @@
         <p class="resend">Didn't receive code? <a href="#" id="resendLink">Resend</a></p>
     </div>
 
+    <script src="../js/api.js"></script>
     <script>
+        // API_BASE and getCSRFToken are now available from api.js
         const params = new URLSearchParams(window.location.search);
         let userEmail = params.get('email') || '';
         
@@ -96,9 +98,12 @@
             successMsg.style.display = 'none';
             
             try {
-                const res = await fetch('/api/verification/verify/', {
+                const res = await fetch(API_BASE + '/users/verify-email/', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCSRFToken()
+                    },
                     body: JSON.stringify({ email: userEmail, code: code })
                 });
                 
@@ -131,9 +136,12 @@
         resendLink.addEventListener('click', async (e) => {
             e.preventDefault();
             try {
-                const res = await fetch('/api/verification/send-code/', {
+                const res = await fetch(API_BASE + '/users/resend-verification/', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCSRFToken()
+                    },
                     body: JSON.stringify({ email: userEmail })
                 });
                 const data = await res.json();
