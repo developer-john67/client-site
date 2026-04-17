@@ -216,6 +216,10 @@ def add_to_cart(request):
         print(f"[DEBUG] add_to_cart - cart_id: {cart.cart_id}, user_id: {cart.user_id}, session_id: {cart.session_id}, items_count: {len(cart_items)}")
 
         return Response(cart_data, status=status.HTTP_200_OK)
+    except Exception as e:
+        import sys
+        print(f"[add_to_cart] Error: {e}", file=sys.stderr, flush=True)
+        return Response({'error': 'Failed to add item to cart'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['PUT'])
