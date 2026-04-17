@@ -18,13 +18,18 @@ urlpatterns = [
     )),
 ]
 
-# Serve media files in production too
+# Serve media files in production
 if not settings.DEBUG:
+    from django.conf import settings
     from django.views.static import serve
     from django.urls import re_path
+    
+    # Make sure media directory exists
+    import os
+    os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
+    
     urlpatterns += [
         re_path(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),
-        re_path(r'^static/(?P<path>.*)$', serve, {'document_root': settings.STATIC_ROOT}),
     ]
 else:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

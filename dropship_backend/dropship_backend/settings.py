@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework.authtoken',
     'corsheaders',
+    'storages',       # ← S3 storage backend
     'shop',
     'products',
     'cart',
@@ -61,10 +62,10 @@ MIDDLEWARE = [
     'dropship_backend.middleware.SQLInjectionProtectionMiddleware',
     'dropship_backend.middleware.RateLimitMiddleware',
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',     # ← serves static files on Render
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',      # Keep for admin
+    'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -94,22 +95,18 @@ WSGI_APPLICATION = 'dropship_backend.wsgi.application'
 
 
 # ─── Database ─────────────────────────────────────────────────────────────────
-# Render provides a DATABASE_URL environment variable.
-# Falls back to individual DB_* variables for local development.
 
 DATABASE_URL = os.getenv('DATABASE_URL')
 
 if DATABASE_URL:
-    #/ production: use DATABASE_URL directly
     DATABASES = {
         'default': dj_database_url.config(
             default=DATABASE_URL,
             conn_max_age=60,
-            ssl_require=not DEBUG,  # enforce SSL in production
+            ssl_require=not DEBUG,
         )
     }
 else:
-    # ✅ Local development: use individual DB_* variables
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
@@ -144,15 +141,36 @@ USE_I18N = True
 USE_TZ = True
 
 
-# ─── Static & Media Files ─────────────────────────────────────────────────────
+# ─── Static Files (WhiteNoise) ────────────────────────────────────────────────
 
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+# ─── Media Files (AWS S3) ─────────────────────────────────────────────────────
+
+AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
+AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
+AWS_STORAGE_BUCKET_NAME = os.getenv('AWS_STORAGE_BUCKET_NAME')
+AWS_S3_REGION_NAME = os.getenv('AWS_S3_REGION_NAME', 'us-east-1')
+AWS_S3_FILE_OVERWRITE = False        # Don't overwrite files with the same name
+AWS_DEFAULT_ACL = None               # Inherit bucket policy for access control
+AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com'
+AWS_S3_OBJECT_PARAMETERS = {
+    'CacheControl': 'max-age=86400', # Cache media files for 1 day
+}
+
+# Use S3 for media in production, local disk for development
+if os.getenv('AWS_STORAGE_BUCKET_NAME'):
+    DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+    MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/media/'
+else:
+    DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
+    MEDIA_URL = '/media/'
+    MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
 
 LOGIN_URL = '/admin-login/'
 
@@ -168,7 +186,6 @@ AUTHENTICATION_BACKENDS = [
 # ─── CORS ─────────────────────────────────────────────────────────────────────
 
 CORS_ALLOW_ALL_ORIGINS = True
-
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_HEADERS = [
     'accept',
@@ -192,12 +209,12 @@ CSRF_TRUSTED_ORIGINS = os.getenv(
 ).split(',')
 
 CSRF_COOKIE_SECURE = not DEBUG
-CSRF_COOKIE_HTTPONLY = False        # Must be False so JS can read it
+CSRF_COOKIE_HTTPONLY = False
 CSRF_COOKIE_SAMESITE = 'Lax'
-CSRF_COOKIE_NAME = 'csrftoken'      # Explicit name for frontend
+CSRF_COOKIE_NAME = 'csrftoken'
 
 
-# ─── Session ─────────────────────────────────────────────────────────────────
+# ─── Session ──────────────────────────────────────────────────────────────────
 
 SESSION_COOKIE_SECURE = not DEBUG
 SESSION_COOKIE_HTTPONLY = True
@@ -255,7 +272,7 @@ RATELIMIT_DEFAULT = '100/hour'
 RATELIMIT_AUTHENTICATED = '200/hour'
 
 
-# ─── Logging ─────────────────────────────────────────────────────────────────
+# ─── Logging ──────────────────────────────────────────────────────────────────
 
 LOGGING = {
     'version': 1,
@@ -291,7 +308,7 @@ LOGGING = {
 }
 
 
-# ─── Security Headers via Middleware ─────────────────────────────────────────
+# ─── Security Headers via Middleware ──────────────────────────────────────────
 
 SECURITY_MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',

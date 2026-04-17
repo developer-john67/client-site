@@ -2,8 +2,15 @@ from rest_framework import serializers
 import uuid
 from datetime import datetime
 from .models import Category, Product, ProductVariant, ProductReview
+from django.conf import settings
 
-MEDIA_BASE_URL = 'http://localhost:8000/media/'
+
+def get_media_base_url():
+    if hasattr(settings, 'AWS_S3_CUSTOM_DOMAIN') and settings.AWS_S3_CUSTOM_DOMAIN:
+        return f"https://{settings.AWS_S3_CUSTOM_DOMAIN}/media"
+    return getattr(settings, 'MEDIA_URL', '/media')
+
+MEDIA_BASE_URL = get_media_base_url()
 
 
 class CategorySerializer(serializers.Serializer):
@@ -22,7 +29,7 @@ class CategorySerializer(serializers.Serializer):
         if obj.image:
             if obj.image.startswith('http'):
                 return obj.image
-            return f"{MEDIA_BASE_URL}{obj.image}"
+            return f"{get_media_base_url()}{obj.image}"
         return None
 
     def create(self, validated_data):
@@ -54,7 +61,7 @@ class ProductVariantSerializer(serializers.Serializer):
         if obj.image:
             if obj.image.startswith('http'):
                 return obj.image
-            return f"{MEDIA_BASE_URL}{obj.image}"
+            return f"{get_media_base_url()}{obj.image}"
         return None
 
     def create(self, validated_data):
@@ -101,8 +108,8 @@ class ProductSerializer(serializers.Serializer):
                 request = self.context.get('request')
                 if request:
                     return request.build_absolute_uri(obj.main_image)
-                return f"{MEDIA_BASE_URL}{obj.main_image}"
-            return f"{MEDIA_BASE_URL}{obj.main_image}"
+                return f"{get_media_base_url()}{obj.main_image}"
+            return f"{get_media_base_url()}{obj.main_image}"
         return None
 
     # Alias so frontend can use either product.main_image or product.image_url

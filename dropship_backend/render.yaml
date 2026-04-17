@@ -21,6 +21,10 @@ services:
         value: "noreply@dropship.com"
       - key: FRONTEND_URL
         value: "https://your-frontend.onrender.com"
+    disk:
+      name: media-files
+      mountPath: /opt/render/project/src/media
+      sizeGB: 1
 
   - type: psql
     name: dropship-db

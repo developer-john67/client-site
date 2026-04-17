@@ -28,15 +28,15 @@ class CustomUserAdmin(UserAdmin):
 
 @admin.register(UserAddress)
 class UserAddressAdmin(admin.ModelAdmin):
-    list_display = ('label', 'user', 'address_type', 'is_default', 'created_at')
+    list_display = ('user', 'address_type', 'is_default', 'city', 'created_at')  # removed 'label'
     list_filter = ('address_type', 'is_default')
-    search_fields = ('user__email', 'label', 'city')
+    search_fields = ('user__email', 'city', 'first_name', 'last_name')
     readonly_fields = ('address_id', 'created_at', 'updated_at')
 
 
 @admin.register(UserSession)
 class UserSessionAdmin(admin.ModelAdmin):
-    list_display = ('user', 'device_info', 'ip_address', 'is_active', 'created_at')
-    list_filter = ('is_active', 'created_at')
-    search_fields = ('user__email', 'ip_address', 'device_info')
+    list_display = ('user', 'user_agent', 'ip_address', 'expires_at', 'created_at')  # replaced 'device_info'/'is_active'
+    list_filter = ('created_at',)  # removed 'is_active'
+    search_fields = ('user__email', 'ip_address', 'user_agent')
     readonly_fields = ('session_id', 'created_at', 'expires_at')
