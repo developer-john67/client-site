@@ -90,7 +90,7 @@ def register(request):
             email=email,
             code=code,
             purpose='email_verify',
-            user=user,
+            user_id=user.user_id,
             expires_at=expires_at,
         )
 
